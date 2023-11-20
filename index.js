@@ -1,10 +1,24 @@
+import express from "express";
+import morgan from "morgan";
+import bodyParser from "body-parser";
+
+
+
 
 const express = require('express');
 const config = require('./config/config');
 const router = express.Router();
+
+
 // const cors = require('cors');
 
 const app = express();
+
+// MIDDLEWARE
+// Preprocessing
+app.use(bodyParser.urlencoded({ extended: true}));
+// Logging
+app.use(morgan("combined"))
 
 // app.use(cors()); // Enable CORS for all routes
 
