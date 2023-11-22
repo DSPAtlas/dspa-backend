@@ -1,10 +1,35 @@
-extends layout
+html
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    title DSPA
+    link(rel="stylesheet", href= (config.frontend.path + "public/styles/main.css"))
 
-block content
-  h1= title
-  p Welcome to #{title}
+  body#app
+    form.container(action="/submit", method="post")
+      div.horizontal-container
+        h3
+          | Total Requests:
+          span#score
+            = locals.totalRequests ? totalRequests : "0"
 
-include partials/header
+      h1#protein
+        = input.protein
 
+      div.answer-container
+        input(type="text", name="answer", id="userInput", placeholder="Select a Protein", autofocus, autocomplete="on")
 
-include partials/footer
+      button(type="submit")
+        | SUBMIT
+        if locals.wasCorrect
+          span.checkmark ✔
+        else if locals.wasCorrect === false
+          span.cross#error ✖
+
+    script
+      | var wasCorrect = "#{locals.wasCorrect}";
+      console.log(wasCorrect);
+      if (wasCorrect === "false") {
+        alert('Game over! Final best score: #{locals.totalScore}');
+        document.getElementById("app").innerHTML = '<a href="/" class="restart-button">Restart</a>';
+      }
