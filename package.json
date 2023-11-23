@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node index.mjs"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
@@ -12,10 +12,8 @@
     "http-errors": "~1.6.3",
     "jade": "^1.9.2",
     "morgan": "~1.9.1",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "pug": "^3.0.2"
   },
-  "type": "module",
-  "scripts": {
-    "start": "node index.js"
-  }
+  "type": "module"
 }
