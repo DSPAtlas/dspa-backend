@@ -1,4 +1,4 @@
-export const config = {
+const config = {
   database: {
     host: "localhost",
     user: "postgres",
@@ -21,3 +21,4 @@ export const config = {
     path: '../dspa-frontend/'
   }
 };
+export default config;

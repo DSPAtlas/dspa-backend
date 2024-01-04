@@ -23,14 +23,14 @@ app.post('/search', async (req, res) => {
     await db.connect();
 
     // Assuming you have a table named 'proteins' with columns 'name' and 'sequence'
-    const result = await db.query('SELECT sequence FROM proteins WHERE name = $1', [proteinName]);
+    //const result = await db.query('SELECT sequence FROM proteins WHERE name = $1', [proteinName]);
 
-    if (result.rows.length > 0) {
-      const sequence = result.rows[0].sequence;
-      res.render('search', { sequence });
-    } else {
-      res.render('search', { sequence: 'Protein not found' });
-    }
+    //if (result.rows.length > 0) {
+      //const sequence = result.rows[0].sequence;
+      //res.render('search', { sequence });
+    //} else {
+      //res.render('search', { sequence: 'Protein not found' });
+    //}
   } catch (error) {
     console.error('Error executing query:', error.message);
     res.status(500).send('Internal Server Error');

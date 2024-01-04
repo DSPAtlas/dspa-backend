@@ -1,6 +1,6 @@
 import pg from 'pg'; 
 const { Client } = pg; 
-import {config} from '../config/config.mjs';
+import config from '../config/config.mjs';
 import mysql from 'mysql2';
 import {
   checkMySQLServerAvailability,
@@ -68,26 +68,11 @@ const db = mysql.createPool({
   dbConfigPool
 });
 
-
-// Establish a connection to the database
-// db.connect((err) => {
-//   if (err) {
-//     console.error('Error connecting to MySQL database:', err.message);
-//     return;
-//   }
-//   console.log('Connected to MySQL database');
-// });
-
-
-// const db = new Client({
-//   user: config.database.user,
-//   host: config.database.host,
-//   database: config.database.database,
-//   password: config.database.password,
-//   port: config.database.port,
-// });
+export const query = async (text, params) => {
+  const result = await pool.query(text, params);
+  return result;
+};
 
 export default db;
 
 
-// export default db;

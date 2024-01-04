@@ -6,11 +6,6 @@ const connection = require('./db/connection');
 
 
 
-
-
-
-
-
 // Handle graceful shutdown
 process.on('SIGINT', () => {
   connection.end((err) => {
