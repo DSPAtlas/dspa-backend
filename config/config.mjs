@@ -15,7 +15,7 @@ const config = {
     port: 5432,
   },
   server: {
-    port: 3000,
+    port: 3023,
   },
   frontend: {
     path: '../dspa-frontend/'
