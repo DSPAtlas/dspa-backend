@@ -6,13 +6,19 @@ const config = {
     database: "peptideatlas",
     connectionLimit: 10,
   },
-  database_pool: {
+  databasepool: {
     host: "localhost",
     user: "postgres",
     password: "dspa",
     database: "peptideatlas",
     connectionLimit: 10,// 'dspa',
-    port: 5432,
+    //port: 5432, 
+    maxIdle: 10,
+    idleTimeout: 60000,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    waitForConnections: true,
   },
   server: {
     port: 3023,

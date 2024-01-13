@@ -35,27 +35,38 @@ export async function checkMySQLServerAvailability(host, port) {
 };
 
 
-export async function checkMySQLConnection(config) {
-    console.log('Used MySQL User:', config.user);
-    const connection = mysql.createConnection(config);
-  
-    try {
-      // Use promise wrapper for connection
-      const promiseConnection = connection.promise();
-  
-      // Attempt to connect to the MySQL server
-      await promiseConnection.execute('SELECT 1');
-  
-      console.log('Connected to the MySQL database');
+export async function checkMySQLConnectionPool(config) {
+  const pool = mysql.createPool(config);
+  let connection;
+
+  try {
+      // Acquire a connection from the pool
+      connection = await pool.getConnection();
+
+      // Get the current connection pool statistics
+      const poolStats = pool._allConnections;
+
+      console.log('MySQL Connection Pool Status:');
+      console.log(`- Connections in use: ${poolStats.length}`);
+      console.log(`- Connections available: ${pool._freeConnections.length}`);
+      console.log(`- Connection queue length: ${pool._connectionQueue.length}`);
+      console.log(`- Maximum connections: ${pool.config.connectionLimit}`);
+
+      // Add more metrics as needed
+
       return true;
-    } catch (error) {
-      console.error('Error connecting to MySQL database:', error.message);
+  } catch (error) {
+      console.error('Error checking MySQL connection pool:', error.message);
       return false;
-    } finally {
-      // Close the connection
-      connection.end();
-    }
-  };
+  } finally {
+      // Release the acquired connection back to the pool
+      if (pool && pool.releaseConnection) {
+          pool.releaseConnection(connection);
+      } else if (connection && connection.release) {
+          connection.release();
+      }
+  }
+}
 
 
 export async function checkMySQLServerReachability(host){
@@ -127,30 +138,30 @@ export async function checkMySQLUserPermissions(config) {
   }
   
 
-export async function checkMySQLConnectionPool(config)  {
-    const pool = mysql.createPool(config);
+// export async function checkMySQLConnectionPool(config)  {
+//     const pool = mysql.createPool(config);
   
-    try {
-        // Acquire a connection from the pool
-        const connection = await pool.promise().getConnection();
+//     try {
+//         // Acquire a connection from the pool
+//         const connection = await pool.promise().getConnection();
 
-        // Get the current connection pool statistics
-        const poolStats = connection._pool;
+//         // Get the current connection pool statistics
+//         const poolStats = connection._pool;
   
-        console.log('MySQL Connection Pool Status:');
-        console.log(`- Connections in use: ${poolStats._allConnections.length}`);
-        console.log(`- Connections available: ${poolStats._freeConnections.length}`);
-        console.log(`- Connection queue length: ${poolStats._connectionQueue.length}`);
-        console.log(`- Maximum connections: ${poolStats.config.connectionLimit}`);
+//         console.log('MySQL Connection Pool Status:');
+//         console.log(`- Connections in use: ${poolStats._allConnections.length}`);
+//         console.log(`- Connections available: ${poolStats._freeConnections.length}`);
+//         console.log(`- Connection queue length: ${poolStats._connectionQueue.length}`);
+//         console.log(`- Maximum connections: ${poolStats.config.connectionLimit}`);
     
-        // Add more metrics as needed
+//         // Add more metrics as needed
     
-        return true;
-    } catch (error) {
-        console.error('Error checking MySQL connection pool:', error.message);
-        return false;
-    } finally {
-        // Close the pool
-        pool.end();
-    }
-}
+//         return true;
+//     } catch (error) {
+//         console.error('Error checking MySQL connection pool:', error.message);
+//         return false;
+//     } finally {
+//         // Close the pool
+//         pool.end();
+//     }
+// }

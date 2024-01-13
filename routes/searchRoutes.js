@@ -1,8 +1,8 @@
 import express from 'express';
-import { searchProtein } from '../controllers/searchController.js';
+import { searchController } from './controllers';
 
 const router = express.Router();
 
-router.post('/search', searchProtein);
+router.get('/search', searchController.searchProteinFunction);
 
-export default router;
+module.exports =  router;
