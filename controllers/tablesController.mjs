@@ -1,8 +1,8 @@
 import { query } from '../db/db.js';
 
-export const getTableNames = async (req, res) => {
+const getTableNames = async (req, res) => {
   try {
-    const result = await query('SELECT table_name FROM information_schema.tables WHERE table_schema = $1', ['public']);
+    const result = await query('SELECT table_name FROM information_schema.tables;');
 
     if (result.rows.length > 0) {
       res.json(result.rows);
@@ -15,3 +15,4 @@ export const getTableNames = async (req, res) => {
   }
 };
 
+export default getTableNames;

@@ -1,9 +1,8 @@
 import { query } from '../db/db.js';
-import fs from "fs";
+import fs from 'fs';
 
-const searchProteinSQL = fs.readFileSync('./sql/searchProteinNew.sql', 'utf8');
 
-exports.earchProteinfunction = async(req, res) => {
+const searchProteinFunction = async (req, res) => {
   const proteinName = req.body.proteinName;
 
   if (!proteinName) {
@@ -11,7 +10,9 @@ exports.earchProteinfunction = async(req, res) => {
   }
 
   try {
-    // parametization to prevent SQL injection
+    const searchProteinSQL = await fs.promises.readFile('./sql/searchProteinNew.sql', 'utf8');
+
+    // Parametrization to prevent SQL injection
     const result = await query(searchProteinSQL, [proteinName]);
 
     if (result.rows.length > 0) {
@@ -25,3 +26,5 @@ exports.earchProteinfunction = async(req, res) => {
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };
+
+export default searchProteinFunction;

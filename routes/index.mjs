@@ -1,4 +1,4 @@
-import { default as searchRoutes } from './searchRoutes.js';
-import { default as tablesRoutes } from './tablesRoutes.js';
+import { default as searchRoutes } from './searchRoutes.mjs';
+import { default as tablesRoutes } from './tablesRoutes.mjs';
 
 export { searchRoutes, tablesRoutes };

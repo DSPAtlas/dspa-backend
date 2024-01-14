@@ -4,8 +4,6 @@
 // const config = require('./config/config');
 // const connection = require('./db/connection');
 
-
-
 // // Handle graceful shutdown
 // process.on('SIGINT', () => {
 //   connection.end((err) => {
@@ -19,11 +17,16 @@
 // });
 
 
-const express = require('express');
+import express from 'express';
+import { searchRoutes, tablesRoutes } from './routes/index.mjs';
+
 const app = express();
 
-// Import your routes
-import { searchRoutes, tablesRoutes } from './routes';
+app.use(express.static('public'));
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', "default-src 'none'; font-src 'self' data:;");
+    next();
+  });
 
 // Use your routes
 app.use('/api', searchRoutes); // Assumes '/api' as a base path for search routes
