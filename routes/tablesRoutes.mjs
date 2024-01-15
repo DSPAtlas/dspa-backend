@@ -1,17 +1,16 @@
 import express from 'express';
 import { tablesController } from '../controllers/index.mjs';
 
-const router = express.Router();
+const tablesRoutes = express.Router();
 
-router.get('/tables', async (req, res) => {
-    try {
-      const result = await tablesController.getTableNames(req, res);
-      // Handle the result as needed
-    } catch (error) {
-      // Handle errors appropriately
-      console.error('Error in route:', error.message);
-      res.status(500).json({ message: 'Internal Server Error' });
-    }
-  });
-  
-  export default router;
+tablesRoutes.get('/', async (req, res) => {
+  try {
+    const result = await tablesController.getTableNames(req, res);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error in route:', error.message);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+export { tablesRoutes };

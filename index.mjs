@@ -14,26 +14,18 @@
 //     }
 //     process.exit();
 //   });
-// });
-
-
+import config from './config/config.mjs';
 import express from 'express';
-import { searchRoutes, tablesRoutes } from './routes/index.mjs';
+import routes from './routes/index.mjs';
 
 const app = express();
 
 app.use(express.static('public'));
-app.use((req, res, next) => {
-    res.setHeader('Content-Security-Policy', "default-src 'none'; font-src 'self' data:;");
-    next();
-  });
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Use your routes
-app.use('/api', searchRoutes); // Assumes '/api' as a base path for search routes
-app.use('/api', tablesRoutes); // Assumes '/api' as a base path for tables routes
+app.use(routes);
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(config.server.backend_port, () => {
+  console.log(`Server is running at http://localhost:${config.server.backend_port}`);
 });

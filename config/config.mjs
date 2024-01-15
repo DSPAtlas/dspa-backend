@@ -21,7 +21,8 @@ const config = {
     waitForConnections: true,
   },
   server: {
-    port: 3023,
+    backend_port: 3000,
+    frontend_port: 3001
   },
   frontend: {
     path: '../dspa-frontend/'
