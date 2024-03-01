@@ -3,11 +3,15 @@
 
 //export { searchController, tablesController};
 
-import searchProteinFunction from './searchController.mjs';
-import getTableNames from './tablesController.mjs';
+import { searchProteinFunction } from './searchController2.mjs';
+import { getTableNames } from './tablesController.mjs';
+import { getProtein } from './proteinController.mjs';
+import { getOrganisms } from './organismController.mjs';
 
 export const searchController = {
   searchProteinFunction,
+  getProtein,
+  getOrganisms
   // ... other controllers if any
 };
 

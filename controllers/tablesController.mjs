@@ -1,6 +1,6 @@
 import { query } from '../db/db.js';
 
-const getTableNames = async (req, res) => {
+export const getTableNames = async (req, res) => {
   try {
     const result = await query('SELECT table_name FROM information_schema.tables;');
 
@@ -14,5 +14,4 @@ const getTableNames = async (req, res) => {
     res.status(500).json({ message: 'Internal Server Error' });
   }
 };
-
-export default getTableNames;
+;

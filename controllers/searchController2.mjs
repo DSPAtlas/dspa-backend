@@ -2,7 +2,7 @@ import { query } from '../db/db.js';
 import fs from 'fs';
 
 
-const searchProteinFunction = async (req, res) => {
+export const searchProteinFunction = async (req, res) => {
   const proteinName = req.body.proteinName;
 
   if (!proteinName) {
@@ -27,4 +27,4 @@ const searchProteinFunction = async (req, res) => {
   }
 };
 
-export default searchProteinFunction;
+

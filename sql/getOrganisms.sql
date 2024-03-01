@@ -1,0 +1,1 @@
+SELECT taxonomy_id, organism_name FROM organism
