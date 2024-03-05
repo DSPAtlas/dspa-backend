@@ -1,6 +1,11 @@
 import mysql2 from 'mysql2';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Function to read SQL file
 const readSQLFile = (fileName) => {

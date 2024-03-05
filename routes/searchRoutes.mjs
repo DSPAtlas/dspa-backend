@@ -1,6 +1,6 @@
 import express from 'express';
-import { searchProteinFunction, getProtein } from '../controllers/index.mjs';
-import { getTableNames } from '../controllers/index.mjs';
+import { searchProteinFunction} from '../controllers/searchController2.mjs';
+
 
 const searchRoutes = express.Router();
 

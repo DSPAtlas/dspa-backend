@@ -1,7 +1,5 @@
 import express from 'express';
-import { tablesController } from '../controllers/index.mjs';
-import { searchProteinFunction, getProtein } from '../controllers/index.mjs';
-import { getTableNames } from '../controllers/index.mjs';
+import { getTableNames } from '../controllers/tablesController.mjs';
 
 const tablesRoutes = express.Router();
 
