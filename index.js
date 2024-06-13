@@ -4,6 +4,8 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import debug from 'debug';
+import cors from 'cors';
+
 
 import homeRoutes from './routes/homeRoutes.js';
 import proteinRoutes from './routes/proteinRoutes.js';
@@ -26,6 +28,11 @@ if (app.get('env') === 'development') {
     debug('app:startup')('Morgan enabled...');
 }
 
+app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3001' // Only allow this origin to access your API
+  }));
+  
 app.use('/', homeRoutes); 
 app.use('/api/v1/proteins', proteinRoutes);
 //app.use('/proteinstruct', structureRoutes);
