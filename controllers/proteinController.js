@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { getProteinFeatures, getBarcodesequence } from '../models/proteinModel.js';
+import { getProteinFeatures, getBarcodesequence, getUniprotData} from '../models/proteinModel.js';
 
 const querySchema = Joi.object({
   taxonomyID: Joi.number().integer().required(),
@@ -21,10 +21,8 @@ export const searchProteins = async (req, res) => {
     const { taxonomyID, proteinName } = value;
 
     const result = await getProteinFeatures(taxonomyID, proteinName);
-    const barcodesequence = getBarcodesequence(result.differentialAbundanceData);
-
-    console.log(JSON.stringify(result.differentialAbundanceData));
-    console.log(barcodesequence);
+    const barcodesequence = await getBarcodesequence(result.differentialAbundanceData);
+    const featuresData = await getUniprotData(proteinName);
 
     // Check if result is not empty
     if (result) {
@@ -35,7 +33,8 @@ export const searchProteins = async (req, res) => {
                 proteinSequence: result.proteinSequence || "No sequence found",
                 differentialAbundanceData: result.differentialAbundanceData,
                 proteinStructure: result.proteinStructure,
-                barcodesequence: barcodesequence
+                barcodeSequence: barcodesequence, 
+                featuresData: featuresData
             }
         });
     } else {
