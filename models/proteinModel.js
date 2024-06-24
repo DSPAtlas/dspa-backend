@@ -159,6 +159,11 @@ export const getProteinStructure = async (proteinId) => {
 }
 }
 
+export const searchProtein = async(searchTerm) => {
+  
+
+}
+
 
 export const getProteinFeatures = async(taxonomyID, proteinName) => {
   try {
@@ -177,7 +182,7 @@ export const getProteinFeatures = async(taxonomyID, proteinName) => {
       proteinName: pgProteinAccession,
       proteinSequence: fastaEntry.seq,
       differentialAbundanceData: differentialAbundanceData,
-      proteinStructure: proteinStructure
+      //proteinStructure: proteinStructure
     };
     return result;
   } catch (error) {

@@ -9,7 +9,7 @@ import cors from 'cors';
 
 import homeRoutes from './routes/homeRoutes.js';
 import proteinRoutes from './routes/proteinRoutes.js';
-//import structureRoutes from './src/routes/structureRoutes.js';
+import searchRoutes from './routes/searchRoutes.js';
 
 const startupDebugger = debug.default('app:startup');
 const dbDebugger = debug.default('app:db');
@@ -35,12 +35,7 @@ app.use(cors({
   
 app.use('/', homeRoutes); 
 app.use('/api/v1/proteins', proteinRoutes);
-//app.use('/proteinstruct', structureRoutes);
-
-app.get('/search', (req, res) => {
-    const { taxonomyID, proteinName } = req.query;
-    res.redirect(`/api/v1/proteins?taxonomyID=${encodeURIComponent(taxonomyID)}&proteinName=${encodeURIComponent(proteinName)}`);
-});
+app.use('/search', searchRoutes);
 
 dbDebugger('Connected to the database...');
 
