@@ -1,5 +1,5 @@
 
-
+import db from '../config/database.js';
 
 export const findProteinBySearchTerm = async (searchTerm) => {
     try {

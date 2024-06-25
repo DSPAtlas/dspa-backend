@@ -2,8 +2,8 @@ import Joi from 'joi';
 import { getProteinFeatures, getBarcodesequence, getUniprotData} from '../models/proteinModel.js';
 
 const querySchema = Joi.object({
+  proteinName: Joi.string().trim().required(),
   taxonomyID: Joi.number().integer().required(),
-  proteinName: Joi.string().trim().required()
 });
 
 export const searchProteins = async (req, res) => {
