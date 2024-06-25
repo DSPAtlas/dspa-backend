@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { findProteinBySearchTerm } from '../models/searchModel';
+import { findProteinBySearchTerm } from '../models/searchModel.js';
 
 const querySchema = Joi.object({
   searchTerm: Joi.string().trim().required()
