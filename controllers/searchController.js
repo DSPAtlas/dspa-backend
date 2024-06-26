@@ -46,7 +46,7 @@ export const searchEntries = async (req, res) => {
         } else {
             // Multiple results found, send a list formatted for table display
             const tableData = results.map(entry => ({
-                proteinName: `<a href="/api/v1/proteins?taxonomyID=${encodeURIComponent(entry.taxonomy_id)}&proteinName=${encodeURIComponent(entry.protein_name)}">${extractProteinAccession(entry.protein_name)}</a>`,
+                proteinName: extractProteinAccession(entry.protein_name),
                 proteinDescription: entry.protein_description,
                 taxonomyID: entry.taxonomy_id
             }));
