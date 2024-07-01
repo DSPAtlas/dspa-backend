@@ -1,5 +1,6 @@
 import { getDifferentialAbundanceByExperimentID, 
     getExperimentMetaData, getGoEnrichmentResultsByExperimentID } from '../models/searchModel.js';
+import Joi from 'joi';
 
 export const searchExperiments = async (req, res) => {
     try {
@@ -36,10 +37,15 @@ export const searchExperiments = async (req, res) => {
     }
 };
 
-const returnExperiment = async(req, res) => {
+
+const querySchemaExperiments = Joi.object({
+    experimentID: Joi.string().required()
+});
+
+export const returnExperiments = async(req, res) => {
 
     try {
-        const { value, error } = querySchema.validate(req.query);
+        const { value, error } = querySchemaExperiments.validate(req.query);
         if (error) {
           return res.status(400).json({ 
             success: false, 
@@ -52,16 +58,16 @@ const returnExperiment = async(req, res) => {
 
     const metadata = await getExperimentMetaData(experimentID);
     const differentialabundance = await getDifferentialAbundanceByExperimentID(experimentID);
-    const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
+    //const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
     
-    if (result) {
+    if (metadata) {
         res.json({
             success: true,
             experimentData: {
                 experimentID: metadata.lipexperiment_id, 
                 submission: metadata.submission_timestamp,
                 differentialAbundanceData: differentialabundance,
-                goEnrichment: goenrichmentresults
+                //goEnrichment: goenrichmentresults
             }
         });
     } else {

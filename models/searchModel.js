@@ -78,7 +78,7 @@ export const getExperimentMetaData = async (experimentID) => {
 };
 
 
-export const getGoEnrichmentResultsByExperimentID(experimentID) = async (experimentID) => {
+export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
   try {
     const [rows] = await db.query(`
         SELECT * FROM goenrichment_results

@@ -36,7 +36,7 @@ app.use(cors({
   
 app.use('/', homeRoutes); 
 app.use('/api/v1/proteins', proteinRoutes);
-app.use('/api/v1/experiments', experimentsRoutes);
+app.use('/api/v1/experiments', experimentRoutes);
 app.use('/search', searchRoutes);
 
 dbDebugger('Connected to the database...');

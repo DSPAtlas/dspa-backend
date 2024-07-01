@@ -1,7 +1,7 @@
 import express from 'express';
-import { searchExperiments } from '../controllers/experimentController.js';
+import { returnExperiments } from '../controllers/experimentController.js';
 
 const router = express.Router();
 
-router.get('/', searchExperiments);
+router.get('/', returnExperiments);
 export default router;
