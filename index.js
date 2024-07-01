@@ -10,6 +10,7 @@ import cors from 'cors';
 import homeRoutes from './routes/homeRoutes.js';
 import proteinRoutes from './routes/proteinRoutes.js';
 import searchRoutes from './routes/searchRoutes.js';
+import experimentRoutes from './routes/experimentRoutes.js';
 
 const startupDebugger = debug.default('app:startup');
 const dbDebugger = debug.default('app:db');
@@ -35,6 +36,7 @@ app.use(cors({
   
 app.use('/', homeRoutes); 
 app.use('/api/v1/proteins', proteinRoutes);
+app.use('/api/v1/experiments', experimentsRoutes);
 app.use('/search', searchRoutes);
 
 dbDebugger('Connected to the database...');

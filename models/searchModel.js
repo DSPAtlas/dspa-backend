@@ -49,3 +49,44 @@ export const extractProteinAccession = (proteinName) => {
       throw new Error(`Protein name "${proteinName}" does not match the expected format.`);
   }
 };
+
+
+export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
+  try {
+      const [rows] = await db.query(`
+          SELECT * FROM differential_abundance
+          WHERE lipexperiment_id = ?
+      `, [experimentID]);
+      return rows;
+  } catch (error) {
+      console.error('Error in getDifferentialAbundanceByExperimentID:', error);
+      throw error;
+  }
+};
+
+export const getExperimentMetaData = async (experimentID) => {
+  try {
+    const [rows] = await db.query(`
+        SELECT * FROM lip_experiments
+        WHERE lipexperiment_id = ?
+    `, [experimentID]);
+    return rows;
+} catch (error) {
+    console.error('Error in get getExperimentMetaData:', error);
+    throw error;
+}
+};
+
+
+export const getGoEnrichmentResultsByExperimentID(experimentID) = async (experimentID) => {
+  try {
+    const [rows] = await db.query(`
+        SELECT * FROM goenrichment_results
+        WHERE lipexperiment_id = ?
+    `, [experimentID]);
+    return rows;
+} catch (error) {
+    console.error('Error in get getGoEnrichmentResultsByExperimentID(experimentID):', error);
+    throw error;
+}
+};
