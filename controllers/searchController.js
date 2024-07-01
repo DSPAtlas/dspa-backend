@@ -1,24 +1,11 @@
 import Joi from 'joi';
-import { findProteinBySearchTerm } from '../models/searchModel.js';
+import { findProteinBySearchTerm, getTaxonomyName, extractProteinDescription, extractProteinAccession} from '../models/searchModel.js';
 import db from '../config/database.js';
 
 const querySchema = Joi.object({
   searchTerm: Joi.string().trim().required()
 });
 
-const extractProteinAccession = (proteinName) => {
-    console.log("Received proteinName:", proteinName); 
-    if (typeof proteinName !== 'string') {
-        throw new TypeError(`Expected a string but received ${typeof proteinName}`);
-    }
-    const match = proteinName.match(/^[^|]*\|([^|]+)\|/);
-    if (match) {
-        return match[1]; 
-    } else {
-        console.log("No match found. Regex did not match the protein name."); 
-        throw new Error(`Protein name "${proteinName}" does not match the expected format.`);
-    }
-};
 
 export const searchEntries = async (req, res) => {
     try {
@@ -45,10 +32,12 @@ export const searchEntries = async (req, res) => {
             return res.redirect(`/api/v1/proteins?taxonomyID=${encodeURIComponent(results[0].taxonomy_id)}&proteinName=${encodeURIComponent(protein_name)}`);
         } else {
             // Multiple results found, send a list formatted for table display
+
             const tableData = results.map(entry => ({
                 proteinName: extractProteinAccession(entry.protein_name),
-                proteinDescription: entry.protein_description,
-                taxonomyID: entry.taxonomy_id
+                proteinDescription: extractProteinDescription(entry.protein_description),
+                taxonomyID: entry.taxonomy_id, 
+                taxonomyName: getTaxonomyName(entry.taxonomy_id)
             }));
             return res.status(200).json({
                 success: true,
