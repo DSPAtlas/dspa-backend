@@ -58,16 +58,16 @@ export const returnExperiments = async(req, res) => {
 
     const metadata = await getExperimentMetaData(experimentID);
     const differentialabundance = await getDifferentialAbundanceByExperimentID(experimentID);
-    //const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
+    const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
     
     if (metadata) {
         res.json({
             success: true,
             experimentData: {
-                experimentID: metadata.lipexperiment_id, 
+                experimentID: experimentID, 
                 submission: metadata.submission_timestamp,
                 differentialAbundanceData: differentialabundance,
-                //goEnrichment: goenrichmentresults
+                goEnrichment: goenrichmentresults
             }
         });
     } else {
