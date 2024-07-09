@@ -131,6 +131,7 @@ export function prepareData(jsonData, proteinSequence) {
   }));
 }
 
+
 export const getProteinStructure = async (proteinId) => {
   try {
     // List all files in the specified directory
@@ -159,6 +160,14 @@ export const getProteinStructure = async (proteinId) => {
 }
 };
 
+export const extractProteinDescription = (inputString) => {
+  // Regular expression to capture text between the first space and " OS"
+  console.log(inputString);
+  const regex = /^[^\s]+\s+(.*?)\s+OS=/;
+  const match = inputString.match(regex);
+  console.log(match);
+  return match ? match[1] : "Description not found";
+};
 
 export const getProteinFeatures = async(taxonomyID, proteinName) => {
   try {
@@ -168,16 +177,22 @@ export const getProteinFeatures = async(taxonomyID, proteinName) => {
     }
     const fastaEntry = fastaEntries[0];
 
+    console.log(fastaEntry);
+
     const pgProteinAccession = extractProteinAccession(fastaEntry.protein_name); 
     const differentialAbundance = await getDifferentialAbundanceByAccession(pgProteinAccession);
     const differentialAbundanceData = prepareData(differentialAbundance, fastaEntry.seq);
     const proteinStructure = getProteinStructure(pgProteinAccession);
+    const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
+    console.log(proteinDescription);
+    
 
     const result = {
       proteinName: pgProteinAccession,
       proteinSequence: fastaEntry.seq,
       differentialAbundanceData: differentialAbundanceData,
-      proteinStructure: proteinStructure
+      proteinStructure: proteinStructure,
+      proteinDescription: proteinDescription
     };
     return result;
   } catch (error) {

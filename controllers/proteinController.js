@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import { getProteinFeatures, getBarcodesequence, getUniprotData} from '../models/proteinModel.js';
+import { extractProteinDescription } from '../models/searchModel.js';
 
 const querySchema = Joi.object({
   proteinName: Joi.string().trim().required(),
@@ -34,7 +35,8 @@ export const searchProteins = async (req, res) => {
                 differentialAbundanceData: result.differentialAbundanceData,
                 proteinStructure: result.proteinStructure,
                 barcodeSequence: barcodesequence, 
-                featuresData: featuresData
+                featuresData: featuresData,
+                proteinDescription: result.proteinDescription
             }
         });
     } else {

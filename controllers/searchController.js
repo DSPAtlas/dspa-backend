@@ -27,9 +27,6 @@ export const searchEntries = async (req, res) => {
                 success: false,
                 message: 'No entries found for the given search term.'
             });
-        } else if (results.length === 1) {
-            const protein_name = extractProteinAccession(results[0].protein_name);
-            return res.redirect(`/api/v1/proteins?taxonomyID=${encodeURIComponent(results[0].taxonomy_id)}&proteinName=${encodeURIComponent(protein_name)}`);
         } else {
             // Multiple results found, send a list formatted for table display
 
