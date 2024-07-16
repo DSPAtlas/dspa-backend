@@ -44,7 +44,7 @@ export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) =
 export const extractProteinAccession = (proteinName) => {
   const match = proteinName.match(/^[^|]*\|([^|]+)\|/);
   if (match) {
-      return match[1]; // Returns the extracted accession part
+      return match[1]; 
   } else {
       throw new Error(`Protein name "${proteinName}" does not match the expected format.`);
   }
@@ -56,7 +56,7 @@ export const findProteinByOrganismAndName = async(taxonomyID, proteinName) => {
     const [rows] = await db.query(query, [taxonomyID, `%${proteinName}%`]);
     return rows;
   } catch (error) {
-    throw error; // Propagate the error
+    throw error; 
   }
 };
 
@@ -132,11 +132,8 @@ export function prepareData(jsonData, proteinSequence) {
 }
 
 export const extractProteinDescription = (inputString) => {
-  // Regular expression to capture text between the first space and " OS"
-  console.log(inputString);
   const regex = /^[^\s]+\s+(.*?)\s+OS=/;
   const match = inputString.match(regex);
-  console.log(match);
   return match ? match[1] : "Description not found";
 };
 
@@ -148,27 +145,21 @@ export const getProteinFeatures = async(taxonomyID, proteinName) => {
     }
     const fastaEntry = fastaEntries[0];
 
-    console.log(fastaEntry);
-
     const pgProteinAccession = extractProteinAccession(fastaEntry.protein_name); 
     const differentialAbundance = await getDifferentialAbundanceByAccession(pgProteinAccession);
     const differentialAbundanceData = prepareData(differentialAbundance, fastaEntry.seq);
-    const proteinStructure = getProteinStructure(pgProteinAccession);
     const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
-    console.log(proteinDescription);
-    
-
+  
     const result = {
       proteinName: pgProteinAccession,
       proteinSequence: fastaEntry.seq,
       differentialAbundanceData: differentialAbundanceData,
-      proteinStructure: proteinStructure,
       proteinDescription: proteinDescription
     };
     return result;
   } catch (error) {
     console.error("Error in getProteinFeatures:", error.message);
-    throw error; // Rethrow the error to be handled by the caller
+    throw error;
   }
 };
   

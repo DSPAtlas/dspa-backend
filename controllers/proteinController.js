@@ -1,6 +1,5 @@
 import Joi from 'joi';
 import { getProteinFeatures, getBarcodesequence, getUniprotData} from '../models/proteinModel.js';
-import { extractProteinDescription } from '../models/searchModel.js';
 
 const querySchema = Joi.object({
   proteinName: Joi.string().trim().required(),
@@ -25,7 +24,6 @@ export const searchProteins = async (req, res) => {
     const barcodesequence = await getBarcodesequence(result.differentialAbundanceData);
     const featuresData = await getUniprotData(proteinName);
 
-    // Check if result is not empty
     if (result) {
         res.json({
             success: true,
@@ -33,14 +31,12 @@ export const searchProteins = async (req, res) => {
                 proteinName: result.proteinName, 
                 proteinSequence: result.proteinSequence || "No sequence found",
                 differentialAbundanceData: result.differentialAbundanceData,
-                proteinStructure: result.proteinStructure,
                 barcodeSequence: barcodesequence, 
                 featuresData: featuresData,
                 proteinDescription: result.proteinDescription
             }
         });
     } else {
-        // Handle case when no results are found
         res.status(404).json({
             success: false,
             message: "No results found for the provided criteria."

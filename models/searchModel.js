@@ -19,19 +19,16 @@ export const findProteinBySearchTerm = async (searchTerm) => {
   };
 
 export const getTaxonomyName = (taxId) => {
-    // Object mapping taxonomy IDs to their names
     const taxonomyDict = {
         10090: "Mus musculus",
         559292: "Saccharomyces cerevisiae S288C",
         9606: "Homo sapiens"
     };
     
-    // Return the name associated with the taxonomy ID, or a default message if not found
     return taxonomyDict[taxId] || "Taxonomy ID not found";
 };
 
 export const extractProteinDescription = (inputString) => {
-  // Regular expression to capture text between the first space and " OS"
   const regex = /^[^\s]+\s+(.*?)\s+OS=/;
   const match = inputString.match(regex);
   return match ? match[1] : "Description not found";

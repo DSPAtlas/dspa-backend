@@ -1,6 +1,9 @@
 import Joi from 'joi';
-import { findProteinBySearchTerm, getTaxonomyName, extractProteinDescription, extractProteinAccession} from '../models/searchModel.js';
-import db from '../config/database.js';
+import { findProteinBySearchTerm, 
+    getTaxonomyName,
+    extractProteinDescription, 
+    extractProteinAccession} from '../models/searchModel.js';
+
 
 const querySchema = Joi.object({
   searchTerm: Joi.string().trim().required()
@@ -9,7 +12,6 @@ const querySchema = Joi.object({
 
 export const searchEntries = async (req, res) => {
     try {
-        // Validate the incoming query parameters
         const { value, error } = querySchema.validate(req.query);
         if (error) {
             return res.status(400).json({
@@ -28,8 +30,6 @@ export const searchEntries = async (req, res) => {
                 message: 'No entries found for the given search term.'
             });
         } else {
-            // Multiple results found, send a list formatted for table display
-
             const tableData = results.map(entry => ({
                 proteinName: extractProteinAccession(entry.protein_name),
                 proteinDescription: extractProteinDescription(entry.protein_description),
