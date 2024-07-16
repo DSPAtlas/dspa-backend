@@ -131,35 +131,6 @@ export function prepareData(jsonData, proteinSequence) {
   }));
 }
 
-
-export const getProteinStructure = async (proteinId) => {
-  try {
-    // List all files in the specified directory
-    directory = "./temp_db/UP000002311_559292_YEAST_v4/"
-    const files = await readdir(directory);
-    
-    // Find the first file that matches the protein ID and ends with '.pdb.gz'
-    const targetFile = files.find(file => file.includes(proteinId) && file.endsWith('.pdb.gz'));
-    
-    if (!targetFile) {
-        throw new Error(`No file found for protein ID: ${proteinId}`);
-    }
-
-    // Construct the full path to the file
-    const filePath = path.join(directory, targetFile);
-    
-    // Read and unzip the file contents
-    const compressedData = await readFile(filePath);
-    const decompressedData = await gunzip(compressedData);
-
-    // Convert buffer to string (assuming UTF-8 encoding)
-    return decompressedData.toString('utf-8');
-} catch (error) {
-    console.error('Error:', error.message);
-    return null;
-}
-};
-
 export const extractProteinDescription = (inputString) => {
   // Regular expression to capture text between the first space and " OS"
   console.log(inputString);
