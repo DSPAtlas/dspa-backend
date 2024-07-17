@@ -7,34 +7,33 @@ dotenv.config();
 
 const getIpType = () =>
   process.env.PRIVATE_IP === '1' || process.env.PRIVATE_IP === 'true'
-    ? 'PRIVATE'
-    : 'PUBLIC';
+     ? 'PRIVATE'
+     : 'PUBLIC';
 
-// connectWithConnector initializes a connection pool for a Cloud SQL instance
-// of MySQL using the Cloud SQL Node.js Connector.
+// // // connectWithConnector initializes a connection pool for a Cloud SQL instance
+// // // of MySQL using the Cloud SQL Node.js Connector.
 
 const connector = new Connector();
 const clientOpts = await connector.getOptions({
-    instanceConnectionName: "dspa-429113:europe-west6:dspasampledatabase",
-    ipType: getIpType(),
-  });
+     instanceConnectionName: "dspa-429113:europe-west6:dspasampledatabase",
+     ipType: getIpType(),
+   });
 
- const dbConfig = {
-    ...clientOpts,
-    user: "root", // e.g. 'my-db-user'
-    password: "dspadatabase", // e.g. 'my-db-password'
-    database: "dspasample"// e.g. 'my-database'
-    // ... Specify additional properties here.
-    //...config,
-  
-  };
+const dbConfig = {
+     ...clientOpts,
+     user: "root", // e.g. 'my-db-user'
+     password: "dspadatabase", // e.g. 'my-db-password'
+     database: "dspasample"// e.g. 'my-database'
+     // ... Specify additional properties here.
+// //     //...config,
+     };
 
-const db = mysql.createPool(dbConfig);
-
+const db = mysql.createPool(dbConfig);// 
+// import mysql from 'mysql2';
 // const db = mysql.createPool({
-//   host: "34.65.172.124", //"127.0.0.1",//
-//   user: "root",
-//   password: "dspadatabase",
+//   host: "localhost",
+//   user: "postgres",
+//   password: "dspa",
 //   database: "dspasample",
 //   //port: "3306",
 //   waitForConnections: true,
