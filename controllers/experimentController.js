@@ -2,7 +2,7 @@ import { getDifferentialAbundanceByExperimentID,
     getExperimentMetaData, getGoEnrichmentResultsByExperimentID } from '../models/searchModel.js';
 import Joi from 'joi';
 
-export const searchExperiments = async (req, res) => {
+export const searchExperiment = async (req, res) => {
     try {
         const { value, error } = querySchema.validate(req.query);
         
@@ -23,7 +23,7 @@ export const searchExperiments = async (req, res) => {
                 message: 'No entries found for the given search term.'
             });
         } else if (experimentmetadata.length === 1) {
-            return res.redirect(`/api/v1/experiments?experimentID=${encodeURIComponent(experimentmetadata[0].lipexperiment_id)}`);
+            return res.redirect(`/api/v1/experiment?experimentID=${encodeURIComponent(experimentmetadata[0].lipexperiment_id)}`);
         } else {
             console.log("fix");
         }
@@ -42,7 +42,7 @@ const querySchemaExperiments = Joi.object({
     experimentID: Joi.string().required()
 });
 
-export const returnExperiments = async(req, res) => {
+export const returnExperiment = async(req, res) => {
 
     try {
         const { value, error } = querySchemaExperiments.validate(req.query);

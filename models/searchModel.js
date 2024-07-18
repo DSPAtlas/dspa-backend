@@ -87,3 +87,15 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
     throw error;
 }
 };
+
+
+export const getAllExperiments = async () => {
+  const query = 'SELECT * FROM lip_experiments';
+  try {
+      const [rows] = await db.query(query);
+      return rows;
+  } catch (error) {
+      console.error('Error fetching all experiments:', error.message);
+      throw error;
+  }
+};
