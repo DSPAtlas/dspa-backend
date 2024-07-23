@@ -21,7 +21,6 @@ export const searchProteins = async (req, res) => {
     const { taxonomyID, proteinName } = value;
 
     const result = await getProteinFeatures(taxonomyID, proteinName);
-    const barcodesequence = await getBarcodesequence(result.differentialAbundanceData);
     const featuresData = await getUniprotData(proteinName);
 
     if (result) {
@@ -31,7 +30,8 @@ export const searchProteins = async (req, res) => {
                 proteinName: result.proteinName, 
                 proteinSequence: result.proteinSequence || "No sequence found",
                 differentialAbundanceData: result.differentialAbundanceData,
-                barcodeSequence: barcodesequence, 
+                differentialAbundanceDataMedian: result.differentialAbundanceDataMedian,
+                barcodeSequence: result.barcodeSequence, 
                 featuresData: featuresData,
                 proteinDescription: result.proteinDescription
             }
