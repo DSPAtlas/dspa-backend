@@ -2,44 +2,11 @@ import { getDifferentialAbundanceByExperimentID,
     getExperimentMetaData, getGoEnrichmentResultsByExperimentID } from '../models/searchModel.js';
 import Joi from 'joi';
 
-export const searchExperiment = async (req, res) => {
-    try {
-        const { value, error } = querySchema.validate(req.query);
-        
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                message: 'Validation error',
-                error: error.details[0].message
-            });
-        }
-        
-        const { searchTerm } = value;
-        const experimentmetadata = await getExperimentMetaData(searchTerm);
-
-        if (experimentmetadata.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'No entries found for the given search term.'
-            });
-        } else if (experimentmetadata.length === 1) {
-            return res.redirect(`/api/v1/experiment?experimentID=${encodeURIComponent(experimentmetadata[0].lipexperiment_id)}`);
-        } else {
-            console.log("fix");
-        }
-    } catch (error) {
-        console.error('Error in searchExperiments:', error.message);
-        return res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: error.message
-        });
-    }
-};
-
 
 const querySchemaExperiments = Joi.object({
-    experimentID: Joi.string().required()
+    experimentID: Joi.string().required(),
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(10)
 });
 
 export const returnExperiment = async(req, res) => {
@@ -54,8 +21,10 @@ export const returnExperiment = async(req, res) => {
         });
         }
     
-    const { experimentID } = value;
+    const { experimentID, page, limit } = value;
 
+    const offset = (page - 1) * limit;
+    
     const metadata = await getExperimentMetaData(experimentID);
     const differentialabundance = await getDifferentialAbundanceByExperimentID(experimentID);
     const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
@@ -67,7 +36,9 @@ export const returnExperiment = async(req, res) => {
                 experimentID: experimentID, 
                 submission: metadata.submission_timestamp,
                 differentialAbundanceData: differentialabundance,
-                goEnrichment: goenrichmentresults
+                goEnrichment: goenrichmentresults,
+                page,
+                limit
             }
         });
     } else {
@@ -77,6 +48,6 @@ export const returnExperiment = async(req, res) => {
         });
     }
     } catch (error) {
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+        res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };

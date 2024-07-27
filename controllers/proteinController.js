@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { getProteinFeatures, getBarcodesequence, getUniprotData} from '../models/proteinModel.js';
+import { getProteinFeatures, getUniprotData} from '../models/proteinModel.js';
 
 const querySchema = Joi.object({
   proteinName: Joi.string().trim().required(),

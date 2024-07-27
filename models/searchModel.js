@@ -47,7 +47,6 @@ export const extractProteinAccession = (proteinName) => {
   }
 };
 
-
 export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   try {
       const [rows] = await db.query(`
