@@ -50,7 +50,12 @@ export const extractProteinAccession = (proteinName) => {
 export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   try {
     const query = `
-        SELECT da.*, ope.seq
+        SELECT da.*, ope.seq,
+        TRIM(SUBSTRING(
+                ope.protein_description, 
+                LOCATE('|', ope.protein_description, LOCATE('|', ope.protein_description) + 1) + 1,
+                LOCATE('OS=', ope.protein_description) - LOCATE('|', ope.protein_description, LOCATE('|', ope.protein_description) + 1) - 2
+        )) AS protein_description
         FROM differential_abundance da
         JOIN organism_proteome_entries ope 
         ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)

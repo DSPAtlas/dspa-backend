@@ -8,6 +8,7 @@ export const getProteinScoreforSingleExperiment= async(jsonData) => {
      * @typedef {Object} DataPoint
      * @property {string} pg_protein_accession - The name of the protein.
      * @property {number} cumulativeScore - The cumulative score for the protein.
+     * @property {string} protein_description - The description of the protein.
      *
      * @returns {Object[]} An array of objects with properties `protein` and `cumulativeScore`.
      */
@@ -42,9 +43,10 @@ export const getProteinScoreforSingleExperiment= async(jsonData) => {
         });
 
         // Convert the proteinScores object to an array of { protein, cumulativeScore } objects
-        return Object.entries(proteinScores).map(([pg_protein_accessions, cumulativeScore]) => ({
+        return Object.entries(proteinScores).map(([pg_protein_accessions, cumulativeScore, protein_description ]) => ({
             pg_protein_accessions,
-            cumulativeScore
+            cumulativeScore,
+            protein_description
         }));
     }
 
