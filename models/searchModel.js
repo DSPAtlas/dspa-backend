@@ -49,12 +49,16 @@ export const extractProteinAccession = (proteinName) => {
 
 export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   try {
-      const [rows] = await db.query(`
-          SELECT * FROM differential_abundance
-          WHERE lipexperiment_id = ?
-      `, [experimentID]);
-      return rows;
-  } catch (error) {
+    const query = `
+        SELECT da.*, ope.seq
+        FROM differential_abundance da
+        JOIN organism_proteome_entries ope 
+        ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
+        WHERE da.lipexperiment_id = ?
+    `;
+    const [rows] = await db.query(query, [experimentID]);
+    return rows;
+  } catch (error) { 
       console.error('Error in getDifferentialAbundanceByExperimentID:', error);
       throw error;
   }
