@@ -107,3 +107,16 @@ export const getAllExperiments = async () => {
       throw error;
   }
 };
+
+export const getAssociatedExperimentIDs = async (groupID) => {
+  try {
+      const [rows] = await db.query(`
+          SELECT * FROM lip_experiments
+          WHERE group_id = ?
+      `, [groupID]);
+      return rows;
+  } catch (error) {
+      console.error('Error fetching associated experiment IDs:', error.message);
+      throw error;
+  }
+};
