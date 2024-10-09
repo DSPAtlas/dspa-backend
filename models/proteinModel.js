@@ -91,7 +91,7 @@ export const findProteinByOrganismAndName = async(taxonomyID, proteinName) => {
 
 
 
-function prepareData(jsonData, proteinSequence) {
+export const prepareData = (jsonData, proteinSequence) => {
   /**
    * Prepare data for barcode visualization
    * 
@@ -208,6 +208,8 @@ export const getProteinFeatures = async(taxonomyID, proteinName) => {
     const {processedData, barcodes } = prepareData(differentialAbundance, fastaEntry.seq);
     //const barcodeSequence = getBarcodesequence(differentialAbundance);
     const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
+
+    
   
     const result = {
       proteinName: pgProteinAccession,

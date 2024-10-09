@@ -120,3 +120,18 @@ export const getAssociatedExperimentIDs = async (groupID) => {
       throw error;
   }
 };
+
+export const getDifferentialAbundanceByAccessionGroup = async (pgProteinAccessions, groupID) => {
+  try {
+      const [rows] = await db.query(`
+          SELECT * FROM differential_abundance
+          WHERE pg_protein_accessions = ?
+          AND lipexperiment_id = ?
+          ORDER BY pos_start
+      `, [pgProteinAccessions, groupID]);
+      return rows;
+  } catch (error) {
+      console.error('Error in getDifferentialAbundanceByAccession:', error);
+      throw error;
+  }
+};
