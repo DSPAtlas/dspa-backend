@@ -47,6 +47,16 @@ export const extractProteinAccession = (proteinName) => {
   }
 };
 
+export const findProteinByName = async(proteinName) => {
+  try {
+    const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
+    const [rows] = await db.query(query, [proteinName]);
+    return rows;
+  } catch (error) {
+    throw error; 
+  }
+};
+
 export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   try {
     const query = `
@@ -105,6 +115,20 @@ export const getAllExperiments = async () => {
   } catch (error) {
       console.error('Error fetching all experiments:', error.message);
       throw error;
+  }
+};
+
+
+export const getExperimentsByTreatment = async (treatment) => {
+  try {
+     const [rows] = await db.query(`
+      SELECT lipexperiment_id FROM lip_experiments 
+      WHERE treatment = ?
+      `, [treatment]);
+      return rows;
+  } catch (error) {
+      console.error('Error fetching all experiments:', error.message);
+      throw error; 
   }
 };
 

@@ -1,5 +1,7 @@
-import { getDifferentialAbundanceByExperimentID, 
-    getAssociatedExperimentIDs, getDifferentialAbundanceByAccessionGroup } from '../models/searchModel.js';
+import { 
+    getAssociatedExperimentIDs, 
+    getDifferentialAbundanceByAccessionGroup 
+} from '../models/searchModel.js';
 
 import Joi from 'joi';
 import {prepareData, getBarcodesequence} from "../models/proteinModel.js";
@@ -30,13 +32,6 @@ export const returnGroup = async(req, res) => {
     const experimentList = await getAssociatedExperimentIDs(groupID);
     const experimentIDsList = experimentList.map(lip_experiment => lip_experiment.lipexperiment_id);
     const doses = experimentList.map(lip_experiment => lip_experiment.dose); 
-   
-    // const fastaEntries = await findProteinByOrganismAndName(9606, "P00966");
-    // if (fastaEntries.length === 0) {
-    //   throw new Error("No protein found for the given taxonomy ID and protein name.");
-    // }
-    // const fastaEntry = fastaEntries[0];
-    // const sequence = fastaEntry.seq;
 
     const sequence = "MSSKGSVVLAYSGGLDTSCILVWLKEQGYDVIAYLANIGQKEDFEEARKKALKLGAKKVFIEDVSREFVEEFIWPAIQSSALYEDRYLLGTSLARPCIARKQVEIAQREGAKYVSHGATGKGNDQVRFELSCYSLAPQIKVIAPWRMPEFYNRFKGRNDLMEYAKQHGIPIPVTPKNPWSMDENLMHISYEAGILENPKNQAPPGLYTKTQDPAKAPNTPDILEIEFKKGVPVKVTNVKDGTTHQTSLELFMYLNEVAGKHGVGRIDIVENRFIGMKSRGIYETPAGTILYHAHLDIEAFTMDREVRKIKQGLGLKFAELVYTGFWHSPECEFVRHCIAKSQERVEGKVQVSVLKGQVYILGRESPLSLYNEELVSMNVQGDYEPTDATGFININSLRLKEYHRLQSKVTAK"
 
