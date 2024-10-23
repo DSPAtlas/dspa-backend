@@ -15,6 +15,7 @@ export const getAllExperimentsHandler = async (req, res) => {
             success: true,
             experiments: allExperiments
         });
+        
     } catch (error) {
         console.error('Error in getAllExperimentsHandler:', error.message);
         return res.status(500).json({

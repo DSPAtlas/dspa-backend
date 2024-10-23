@@ -89,6 +89,16 @@ export const findProteinByOrganismAndName = async(taxonomyID, proteinName) => {
   }
 };
 
+export const getProteinByName = async(proteinName) => {
+  try {
+    const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
+    const [rows] = await db.query(query, [`%${proteinName}%`]);
+    return rows;
+  } catch (error) {
+    throw error; 
+  }
+};
+
 
 
 export const prepareData = (jsonData, proteinSequence) => {
@@ -195,9 +205,9 @@ export const extractProteinDescription = (inputString) => {
   return match ? match[1] : "Description not found";
 };
 
-export const getProteinFeatures = async(taxonomyID, proteinName) => {
+export const getProteinFeatures = async(proteinName) => {
   try {
-    const fastaEntries = await findProteinByOrganismAndName(taxonomyID, proteinName);
+    const fastaEntries = await getProteinByName(proteinName);
     if (fastaEntries.length === 0) {
       throw new Error("No protein found for the given taxonomy ID and protein name.");
     }
@@ -206,10 +216,7 @@ export const getProteinFeatures = async(taxonomyID, proteinName) => {
     const pgProteinAccession = extractProteinAccession(fastaEntry.protein_name); 
     const differentialAbundance = await getDifferentialAbundanceByAccession(pgProteinAccession);
     const {processedData, barcodes } = prepareData(differentialAbundance, fastaEntry.seq);
-    //const barcodeSequence = getBarcodesequence(differentialAbundance);
     const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
-
-    
   
     const result = {
       proteinName: pgProteinAccession,
