@@ -19,7 +19,7 @@ export const getKeggPathwayData = async (req, res) => {
 
     const { keggPathway } = value;
 
-    const kgmlData = getKGML(keggPathway);
+    const kgmlData = await getKGML(keggPathway);
     const proteinDict = extractProteins(kgmlData);
 
 

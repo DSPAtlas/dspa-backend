@@ -1,6 +1,8 @@
 import fetch from 'node-fetch';
-import db from '../config/database.js';
 import { DOMParser } from 'xmldom';
+import xml2js from 'xml2js';
+
+const parser = new xml2js.Parser({ explicitArray: false });
 
 export const getKGML = async (pathwayID) => {
     try {
@@ -10,25 +12,23 @@ export const getKGML = async (pathwayID) => {
                 'Accept': 'application/xml',
             }
         });
-        
+
         // Check if the response is successful
         if (!response.ok) {
             throw new Error(`Error fetching KGML data: ${response.statusText}`);
         }
 
         // Get the text of the response (KGML XML)
-        const xmlText = await response.text();
+        let xmlText = await response.text();
 
-        // Parse the XML text into a DOM Document
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "application/xml");
+        // Remove DOCTYPE declaration
+        xmlText = xmlText.replace(/<!DOCTYPE[^>]*>/, '');
+        console.log("Fetched XML:", xmlText);
 
-        // Check if there are any parsing errors
-        if (xmlDoc.querySelector("parsererror")) {
-            throw new Error("Error parsing KGML XML data");
-        }
+        // Parse XML to JSON
+        const xmlDoc = await parser.parseStringPromise(xmlText);
 
-        // Return the parsed XML document
+        // Return parsed JSON object
         return xmlDoc;
     } catch (error) {
         console.error("Failed to fetch or parse KGML data:", error);
@@ -36,21 +36,23 @@ export const getKGML = async (pathwayID) => {
     }
 };
 
-export const extractProteins = (xmlDoc) => {
-    if (!xmlDoc) {
-        throw new Error("Invalid XML Document");
-    }
 
+
+export const extractProteins = (xmlText) => {
+    // Regular expression to match entries with type "gene"
+    const geneEntryRegex = /<entry[^>]*type="gene"[^>]*name="([^"]+)"[^>]*>/g;
     const proteins = {};
-    const entries = Array.from(xmlDoc.getElementsByTagName("entry"));
 
-    entries.forEach(entry => {
-        if (entry.getAttribute("type") === "gene") {
-            const geneNames = entry.getAttribute("name").split(" ");
-            const firstGene = geneNames[0];
-            proteins[firstGene] = { proteinName: "proteinName" };
-        }
-    });
+    let match;
+    while ((match = geneEntryRegex.exec(xmlText)) !== null) {
+        // Split gene names by spaces
+        const geneNames = match[1].split(" ");
+        const firstGene = geneNames[0];
+        
+        // Store the first gene name in the proteins object
+        proteins[firstGene] = { proteinName: "proteinName" };
+    }
 
     return proteins;
 };
+
