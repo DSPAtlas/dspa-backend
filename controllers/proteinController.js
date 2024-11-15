@@ -23,7 +23,7 @@ export const searchProteins = async (req, res) => {
     }
 
     const { proteinName } = value;
-
+  
     const result = await getProteinFeatures(proteinName);
     const featuresData = await getUniprotData(proteinName);
 

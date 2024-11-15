@@ -212,9 +212,16 @@ export const getProteinFeatures = async(proteinName) => {
       throw new Error("No protein found for the given taxonomy ID and protein name.");
     }
     const fastaEntry = fastaEntries[0];
+    console.log("fastaentry", fastaEntry);
 
-    const pgProteinAccession = extractProteinAccession(fastaEntry.protein_name); 
+    let pgProteinAccession;
+    if (/^[A-Za-z0-9]+$/.test(fastaEntry.protein_name)) {
+      pgProteinAccession = fastaEntry.protein_name;
+    } else {
+      pgProteinAccession = extractProteinAccession(fastaEntry.protein_name); 
+    }
     const differentialAbundance = await getDifferentialAbundanceByAccession(pgProteinAccession);
+    console.log(differentialAbundance);
     const {processedData, barcodes } = prepareData(differentialAbundance, fastaEntry.seq);
     const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
   

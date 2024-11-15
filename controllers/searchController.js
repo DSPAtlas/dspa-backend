@@ -31,9 +31,11 @@ export const searchEntries = async (req, res) => {
             });
         } else {
             const tableData = results.map(entry => ({
-                proteinName: extractProteinAccession(entry.protein_name),
+                proteinName: /^[A-Za-z0-9]+$/.test(entry.protein_name) 
+                    ? entry.protein_name 
+                    : extractProteinAccession(entry.protein_name),
                 proteinDescription: extractProteinDescription(entry.protein_description),
-                taxonomyID: entry.taxonomy_id, 
+                taxonomyID: entry.taxonomy_id,
                 taxonomyName: getTaxonomyName(entry.taxonomy_id)
             }));
             return res.status(200).json({

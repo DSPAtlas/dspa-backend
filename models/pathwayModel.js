@@ -37,7 +37,7 @@ export const getKGML = async (pathwayID) => {
 };
 
 
-
+// TODO add mapping to the proteinName
 export const extractProteins = (xmlText) => {
     // Regular expression to match entries with type "gene"
     const geneEntryRegex = /<entry[^>]*type="gene"[^>]*name="([^"]+)"[^>]*>/g;
