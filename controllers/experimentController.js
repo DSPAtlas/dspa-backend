@@ -38,7 +38,7 @@ export const returnExperiment = async(req, res) => {
             success: true,
             experimentData: {
                 experimentID: experimentID, 
-                submission: metadata.submission_timestamp,
+                metaData: metadata[0],
                 differentialAbundanceData: differentialabundance,
                 proteinScores: proteinScores,
                 goEnrichment: goenrichmentresults,
@@ -56,3 +56,7 @@ export const returnExperiment = async(req, res) => {
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
+
+
+
+
