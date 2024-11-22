@@ -1,10 +1,13 @@
 import Joi from 'joi';
-import { getProteinFeatures, getUniprotData} from '../models/proteinModel.js';
 import { 
-  getAssociatedExperimentIDs, 
-  getDifferentialAbundanceByAccessionGroup 
+  getProteinFeatures, 
+  getUniprotData
+} from '../models/proteinModel.js';
+import { 
+  getDifferentialAbundanceByAccessionGroup, 
+  getExperimentsMetaData
 } from '../models/searchModel.js';
-import {prepareData, getBarcodesequence} from "../models/proteinModel.js";
+import { prepareData } from "../models/proteinModel.js";
 
 const querySchema = Joi.object({
   proteinName: Joi.string().trim().required()
@@ -29,6 +32,7 @@ export const searchProteins = async (req, res) => {
 
     let lipscoreList = [];
     const experimentIDsList = Object.keys(result.differentialAbundanceData);
+    const experimentMetaData = await getExperimentsMetaData(experimentIDsList);
     const sequence = result.proteinSequence;
 
     for (let experimentID of experimentIDsList) {
@@ -63,6 +67,7 @@ export const searchProteins = async (req, res) => {
             proteinData: {
                 proteinName: result.proteinName, 
                 experimentIDsList: experimentIDsList,
+                experimentMetaData: experimentMetaData,
                 proteinSequence: result.proteinSequence || "No sequence found",
                 differentialAbundanceData: result.differentialAbundanceData,
                 differentialAbundanceDataMedian: result.differentialAbundanceDataMedian,
@@ -84,11 +89,3 @@ export const searchProteins = async (req, res) => {
   }
 };
 
-
-
-
-
-// request handling
-// routing logic
-// input validation
-// decoupling business logic and data access from the presentation layer 

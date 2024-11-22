@@ -22,7 +22,8 @@ export const getTaxonomyName = (taxId) => {
     const taxonomyDict = {
         10090: "Mus musculus",
         559292: "Saccharomyces cerevisiae S288C",
-        9606: "Homo sapiens"
+        9606: "Homo sapiens",
+        562: "Escherichia coli"
     };
     
     return taxonomyDict[taxId] || "Taxonomy ID not found";
@@ -79,25 +80,23 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   }
 };
 
-export const getExperimentMetaData = async (experimentID) => {
-  try {
-    const [rows] = await db.query(`
-        SELECT * FROM lip_experiments
-        WHERE lipexperiment_id = ?
-    `, [experimentID]);
-    return rows;
-} catch (error) {
-    console.error('Error in get getExperimentMetaData:', error);
-    throw error;
-}
-};
+
 
 
 export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
   try {
     const [rows] = await db.query(`
-        SELECT * FROM go_analysis
-        WHERE lipexperiment_id = ?
+         SELECT 
+            ga.*, 
+            gt.accessions
+        FROM 
+            go_analysis ga
+        LEFT JOIN 
+            go_term gt
+        ON 
+            ga.go_id = gt.go_id
+        WHERE 
+            ga.lipexperiment_id = ?
     `, [experimentID]);
     return rows;
 } catch (error) {
@@ -158,4 +157,34 @@ export const getDifferentialAbundanceByAccessionGroup = async (pgProteinAccessio
       console.error('Error in getDifferentialAbundanceByAccession:', error);
       throw error;
   }
+};
+
+export const getExperimentsMetaData = async (experimentIDsList) => {
+  try {
+    // Generate placeholders for the number of experiment IDs
+    const placeholders = experimentIDsList.map(() => '?').join(', ');
+
+    const [rows] = await db.query(`
+        SELECT * FROM lip_experiments
+        WHERE lipexperiment_id IN (${placeholders})
+    `, experimentIDsList);
+
+    return rows;
+  } catch (error) {
+    console.error('Error in getExperimentsMetaData:', error);
+    throw error;
+  }
+};
+
+export const getExperimentMetaData = async (experimentID) => {
+  try {
+    const [rows] = await db.query(`
+        SELECT * FROM lip_experiments
+        WHERE lipexperiment_id = ?
+    `, [experimentID]);
+    return rows;
+} catch (error) {
+    console.error('Error in get getExperimentMetaData:', error);
+    throw error;
+}
 };
