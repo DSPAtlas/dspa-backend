@@ -3,7 +3,8 @@ import {
     getDifferentialAbundanceByExperimentID, 
     getDifferentialAbundanceByAccessionGroup,
     getGoEnrichmentResultsByExperimentID,
-    findProteinByName
+    findProteinByName,
+    getConditions
 } from '../models/searchModel.js';
 
 import { 
@@ -21,9 +22,35 @@ import {
 
 import Joi from 'joi';
 
+
 const queryTreatment = Joi.object({
     treatment: Joi.string().trim().required()
 });
+
+export const returnConditions = async (req, res) => {
+    try {
+        const conditions = await getConditions();
+
+        if (conditions && conditions.length > 0) {
+            res.json({
+                success: true,
+                conditions: conditions.map(c => c.condition),
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                message: "No conditions found for the provided criteria."
+            });
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message
+        });
+    }
+};
+
 
 export const returnTreatmentGroup = async(req, res) => {
     try {
@@ -96,6 +123,9 @@ export const returnTreatmentGroup = async(req, res) => {
     treatment: Joi.string().trim().required(),
     proteinName: Joi.string().trim().required()
 });
+
+
+
 
  export const returnProteinForTreatmentGroup = async(req, res) => {
     try {

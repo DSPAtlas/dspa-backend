@@ -144,6 +144,18 @@ export const getAssociatedExperimentIDs = async (groupID) => {
   }
 };
 
+export const getConditions = async () => {
+  try {
+      const [rows] = await db.query(`
+          SELECT DISTINCT \`condition\` FROM lip_experiments WHERE \`condition\` IS NOT NULL
+      `);
+      return rows;
+  } catch (error) {
+      console.error('Error fetching conditions:', error.message);
+      throw error;
+  }
+};
+
 export const getDifferentialAbundanceByAccessionGroup = async (pgProteinAccessions, groupID) => {
   try {
       const [rows] = await db.query(`
