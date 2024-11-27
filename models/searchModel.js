@@ -86,7 +86,7 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
 export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
   try {
     const [rows] = await db.query(`
-         SELECT 
+        SELECT 
             ga.*, 
             gt.accessions
         FROM 
@@ -95,8 +95,14 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
             go_term gt
         ON 
             ga.go_id = gt.go_id
+        INNER JOIN 
+            lip_experiments le
+        ON 
+            ga.lipexperiment_id = le.lipexperiment_id
         WHERE 
             ga.lipexperiment_id = ?
+        AND 
+            gt.taxonomy_id = le.taxonomy_id
     `, [experimentID]);
     return rows;
 } catch (error) {
@@ -120,17 +126,20 @@ export const getAllExperiments = async () => {
 
 export const getExperimentsByTreatment = async (treatment) => {
   try {
-     const [rows] = await db.query(`
-      SELECT lipexperiment_id FROM lip_experiments 
-      WHERE treatment = ?
-      `, [treatment]);
-      return rows;
+    const [rows] = await db.query(
+      `
+      SELECT lipexperiment_id 
+      FROM lip_experiments 
+      WHERE \`condition\` = ?
+      `,
+      [treatment]
+    );
+    return rows;
   } catch (error) {
-      console.error('Error fetching all experiments:', error.message);
-      throw error; 
+    console.error('Error fetching all experiments:', error.message);
+    throw error;
   }
 };
-
 export const getAssociatedExperimentIDs = async (groupID) => {
   try {
       const [rows] = await db.query(`
