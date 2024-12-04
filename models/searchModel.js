@@ -4,9 +4,11 @@ import db from '../config/database.js';
 export const findProteinBySearchTerm = async (searchTerm) => {
     try {
       const query = `
-        SELECT seq, protein_name, protein_description, taxonomy_id 
-        FROM organism_proteome_entries 
-        WHERE protein_name LIKE ? OR protein_description LIKE ?
+         SELECT DISTINCT o.seq, o.protein_name, o.protein_description, o.taxonomy_id 
+          FROM organism_proteome_entries o
+          JOIN differential_abundance d
+          ON o.protein_name = d.pg_protein_accessions
+          WHERE o.protein_name LIKE ? OR o.protein_description LIKE ?
       `;
 
       const params = [`%${searchTerm}%`, `%${searchTerm}%`];
