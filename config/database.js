@@ -5,7 +5,7 @@ const db = mysql.createPool({
   host: "localhost", //'mysql',
   user: 'root',  
   //password: process.env.DB_PASSWORD || "dspa",
-  database: process.env.DB_NAME || "dspasample",
+  database: process.env.DB_NAME || "dynaprotdb",
   port:  3306,
   //waitForConnections: true,
   //connectionLimit: 10,
