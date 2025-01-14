@@ -1,6 +1,8 @@
-import { getDifferentialAbundanceByExperimentID, 
-    getExperimentMetaData, getGoEnrichmentResultsByExperimentID } from '../models/searchModel.js';
-import { getProteinScoreforSingleExperiment } from '../models/experimentModel.js';
+import { 
+    getDifferentialAbundanceByExperimentID, 
+    getExperimentMetaData, 
+    getGoEnrichmentResultsByExperimentID,
+    getProteinScoreforSingleExperiment } from '../models/searchModel.js';
 import Joi from 'joi';
 
 
@@ -28,7 +30,7 @@ export const returnExperiment = async(req, res) => {
     
     const metadata = await getExperimentMetaData(experimentID);
     const differentialabundance = await getDifferentialAbundanceByExperimentID(experimentID);
-    const proteinScores = await getProteinScoreforSingleExperiment(differentialabundance);
+    const proteinScores = await getProteinScoreforSingleExperiment(experimentID);
     const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
 
     console.log("proteinscores", proteinScores);

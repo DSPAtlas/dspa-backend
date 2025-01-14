@@ -199,6 +199,42 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
   }
 };
 
+export const fetchAllTreatmentData = async (condition) => {
+  try {
+    const [rows] = await db.query(`
+        SELECT
+            le.lipexperiment_id,
+            le.condition,
+            da.pg_protein_accessions,
+            da.diff AS differential_abundance_value,
+            da.pos_start,
+            da.adj_pval AS differential_abundance_score,
+            ps.cumulativeScore AS protein_score,
+            GROUP_CONCAT(DISTINCT ge.go_id SEPARATOR ', ') AS go_ids,
+            GROUP_CONCAT(DISTINCT ge.term SEPARATOR ', ') AS go_terms
+        FROM
+            lip_experiments le
+        JOIN
+            differential_abundance da ON le.lipexperiment_id = da.lipexperiment_id
+        LEFT JOIN
+            go_analysis ge ON le.lipexperiment_id = ge.lipexperiment_id
+        LEFT JOIN
+            protein_scores ps ON da.pg_protein_accessions = ps.pg_protein_accessions AND le.lipexperiment_id = ps.lipexperiment_id
+        WHERE
+            le.condition = ?
+        GROUP BY
+            le.lipexperiment_id, le.condition, da.pg_protein_accessions, da.diff, da.pos_start, da.adj_pval, ps.cumulativeScore
+    `, [condition]);
+    return rows;
+  } catch (error) {
+    console.error('Error in fetchAllTreatmentData', error);
+    throw error;
+  }
+};
+
+
+
+
 export const getExperimentMetaData = async (experimentID) => {
   try {
     const [rows] = await db.query(`
@@ -208,6 +244,20 @@ export const getExperimentMetaData = async (experimentID) => {
     return rows;
 } catch (error) {
     console.error('Error in get getExperimentMetaData:', error);
+    throw error;
+}
+};
+
+
+export const getProteinScoreforSingleExperiment = async (experimentID) => {
+  try {
+    const [rows] = await db.query(`
+        SELECT * FROM protein_scores
+        WHERE lipexperiment_id = ?
+    `, [experimentID]);
+    return rows;
+} catch (error) {
+    console.error('Error in get getProteinScoreforSingleExperiment:', error);
     throw error;
 }
 };

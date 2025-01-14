@@ -1,51 +1,44 @@
-export const combineExperiments = (data) => {
-    const combinedData = {};
+/**
+ * Combines protein scores from multiple experiments into a summarized table.
+ * @param {Array} proteinScoresList - An array of objects with each containing an experiment ID and an array of score data.
+ * @returns {Array} An array of objects, each representing a protein with its average score and the list of experiments contributing to that score.
+ */
+export function combineProteinScores(proteinScoresList) {
+    const proteinScoresMap = {};
 
-    // Iterate over each experiment (since `data` is an array)
-    data.forEach((experiment) => {
-        const experimentID = experiment.experimentID;
-        const experimentEntries = experiment.data; // Get the experiment data, which is an array
+    // Aggregate scores by protein accession
+    proteinScoresList.forEach(entry => {
+        entry.data.forEach(scoreDetail => {
+            const { proteinAccession, score } = scoreDetail;
+            
+            if (!proteinScoresMap[proteinAccession]) {
+                proteinScoresMap[proteinAccession] = {
+                    totalScore: 0,
+                    count: 0,
+                    experiments: []
+                };
+            }
 
-        // Check if experimentEntries is an array
-        if (Array.isArray(experimentEntries)) {
-            experimentEntries.forEach(entry => {
-                const proteinAccession = entry.pg_protein_accessions;
-                const cumulativeScore = entry.cumulativeScore;
-
-                // Initialize the protein data if not already present
-                if (!combinedData[proteinAccession]) {
-                    combinedData[proteinAccession] = {
-                        experiments: {},
-                        averageScore: 0,
-                        count: 0
-                    };
-                }
-
-                // Add the cumulative score for the experiment
-                combinedData[proteinAccession].experiments[experimentID] = cumulativeScore;
-                combinedData[proteinAccession].count += 1;
-                combinedData[proteinAccession].averageScore += cumulativeScore;
+            proteinScoresMap[proteinAccession].totalScore += score;
+            proteinScoresMap[proteinAccession].count++;
+            proteinScoresMap[proteinAccession].experiments.push({
+                experimentID: entry.experimentID,
+                score: score
             });
-        } else {
-            console.error(`Expected array but got ${typeof experimentEntries} for experimentID: ${experimentID}`);
-        }
+        });
     });
 
-    // Calculate average scores and filter out entries with averageScore 0 or NA
-    let filteredData = Object.keys(combinedData).reduce((result, proteinAccession) => {
-        const entry = combinedData[proteinAccession];
-        entry.averageScore /= entry.count;
+    // Convert the map to an array and calculate average scores
+    const proteinScoresTable = Object.keys(proteinScoresMap).map(accession => {
+        const { totalScore, count, experiments } = proteinScoresMap[accession];
+        return {
+            proteinAccession: accession,
+            averageScore: totalScore / count,
+            details: experiments
+        };
+    });
 
-        // Filter out entries where averageScore is 0, null, or undefined
-        if (entry.averageScore !== 0 && entry.averageScore !== null && entry.averageScore !== undefined) {
-            result.push({ proteinAccession, ...entry });
-        }
+    return proteinScoresTable;
+}
 
-        return result;
-    }, []);
 
-    // Sort by averageScore in descending order
-    filteredData.sort((a, b) => b.averageScore - a.averageScore);
-
-    return filteredData;
-};

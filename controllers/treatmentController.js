@@ -1,24 +1,12 @@
 import { 
-    getExperimentsByTreatment,
-    getDifferentialAbundanceByExperimentID, 
-    getDifferentialAbundanceByAccessionGroup,
-    getGoEnrichmentResultsByExperimentID,
-    findProteinByName,
-    getConditions
+    getConditions,
+    getDifferentialAbundanceByExperimentID,
+    getExperimentsByTreatment, 
+    getProteinScoreforSingleExperiment,
+    getGoEnrichmentResultsByExperimentID
+
 } from '../models/searchModel.js';
 
-import { 
-    getProteinScoreforSingleExperiment 
-} from '../models/experimentModel.js';
-
-import { 
-    combineExperiments
-} from '../models/treatmentModel.js';
-
-import {
-    prepareData, 
-    getBarcodesequence
-} from "../models/proteinModel.js";
 
 import Joi from 'joi';
 
@@ -26,6 +14,58 @@ import Joi from 'joi';
 const queryTreatment = Joi.object({
     treatment: Joi.string().trim().required()
 });
+
+const combineExperiments = (data) => {
+    const combinedData = {};
+
+    // Iterate over each experiment (since `data` is an array)
+    data.forEach((experiment) => {
+        const experimentID = experiment.experimentID;
+        const experimentEntries = experiment.data; // Get the experiment data, which is an array
+
+        // Check if experimentEntries is an array
+        if (Array.isArray(experimentEntries)) {
+            experimentEntries.forEach(entry => {
+                const proteinAccession = entry.pg_protein_accessions;
+                const cumulativeScore = entry.cumulativeScore;
+
+                // Initialize the protein data if not already present
+                if (!combinedData[proteinAccession]) {
+                    combinedData[proteinAccession] = {
+                        experiments: {},
+                        averageScore: 0,
+                        count: 0
+                    };
+                }
+
+                // Add the cumulative score for the experiment
+                combinedData[proteinAccession].experiments[experimentID] = cumulativeScore;
+                combinedData[proteinAccession].count += 1;
+                combinedData[proteinAccession].averageScore += cumulativeScore;
+            });
+        } else {
+            console.error(`Expected array but got ${typeof experimentEntries} for experimentID: ${experimentID}`);
+        }
+    });
+
+    // Calculate average scores and filter out entries with averageScore 0 or NA
+    let filteredData = Object.keys(combinedData).reduce((result, proteinAccession) => {
+        const entry = combinedData[proteinAccession];
+        entry.averageScore /= entry.count;
+
+        // Filter out entries where averageScore is 0, null, or undefined
+        if (entry.averageScore !== 0 && entry.averageScore !== null && entry.averageScore !== undefined) {
+            result.push({ proteinAccession, ...entry });
+        }
+
+        return result;
+    }, []);
+
+    // Sort by averageScore in descending order
+    filteredData.sort((a, b) => b.averageScore - a.averageScore);
+
+    return filteredData;
+};
 
 export const returnConditions = async (req, res) => {
     try {
@@ -51,7 +91,6 @@ export const returnConditions = async (req, res) => {
     }
 };
 
-
 export const returnTreatmentGroup = async(req, res) => {
     try {
         const { value, error } = queryTreatment.validate(req.query);
@@ -71,30 +110,33 @@ export const returnTreatmentGroup = async(req, res) => {
     let goEnrichmentList = [];
 
     for (let experiment of experimentIDsList) {
-        const experimentID = experiment.lipexperiment_id; 
-        const differentialAbundance = await getDifferentialAbundanceByExperimentID(experimentID);
-        const proteinScores = await getProteinScoreforSingleExperiment(differentialAbundance);
-        const goEnrichmentResults = await getGoEnrichmentResultsByExperimentID(experimentID);
+        const experimentID = experiment.lipexperiment_id;
         
+        // Fetch all data concurrently
+        const [differentialAbundance, proteinScores, goEnrichmentResults] = await Promise.all([
+            getDifferentialAbundanceByExperimentID(experimentID),
+            getProteinScoreforSingleExperiment(experimentID),
+            getGoEnrichmentResultsByExperimentID(experimentID)
+        ]);
+    
         differentialAbundanceDataList.push({
             experimentID,
             data: differentialAbundance
         });
-
+    
         proteinScoresList.push({
-         experimentID,
-         data: proteinScores
-         });
- 
+            experimentID,
+            data: proteinScores
+        });
+    
         goEnrichmentList.push({
-         experimentID,
-         data: goEnrichmentResults
+            experimentID,
+            data: goEnrichmentResults
         });
     }
+    
 
-    console.log("proteinscoreli", proteinScoresList);
     const proteinScoresTable = combineExperiments(proteinScoresList);
-    console.log("proteinstable", proteinScoresTable);
 
     if (experimentIDsList) {
          res.json({
@@ -105,95 +147,6 @@ export const returnTreatmentGroup = async(req, res) => {
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: proteinScoresTable,
                 goEnrichmentList: goEnrichmentList
-             }
-         });
-     } else {
-         res.status(404).json({
-             success: false,
-             message: "No results found for the provided criteria."
-         });
-     }
-     } catch (error) {
-         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
-   }
- };
-
-
- const queryProteinForTreatmentGroup = Joi.object({
-    treatment: Joi.string().trim().required(),
-    proteinName: Joi.string().trim().required()
-});
-
-
-
-
- export const returnProteinForTreatmentGroup = async(req, res) => {
-    try {
-        const { value, error } = queryProteinForTreatmentGroup.validate(req.query);
-        if (error) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Validation error', 
-            error: error.details[0].message 
-        });}
-    
-    const { treatment, proteinName } = value;
-
-    const experimentList = await getExperimentsByTreatment(treatment);
-    const experimentIDsList = experimentList.map(lip_experiment => lip_experiment.lipexperiment_id);
-    const sequence = await findProteinByName(proteinName); // extract seq
-
-    let differentialAbundanceDataList = [];
-    let barcodeList = [];
-    let lipscoreList = [];
- 
-    // Loop through each experiment ID to get the differential abundance data
-    for (let experimentID of experimentIDsList) {
-        const differentialAbundance = await getDifferentialAbundanceByAccessionGroup(proteinName,experimentID);
-
-        const {processedData, b }= prepareData(differentialAbundance, sequence);
-        const barcode = getBarcodesequence(processedData[experimentID]);
- 
-        // meanwhile use plDDT scores
-        const lipScoreArray = processedData[experimentID].map(item => {
-             if (item.score === null) {
-                 return -1;
-             } else if (item.score > 0 && item.score < 2) {
-                 return 50;
-             } else if (item.score >= 2 && item.score < 4) {
-                 return 70;
-             } else if (item.score >= 4 && item.score < 7) {
-                 return 90;
-             } else if (item.score >= 7) {
-                 return 100;
-             }
-         });
-        
-        differentialAbundanceDataList.push({
-            experimentID,
-            data: differentialAbundance
-        });
-
-        barcodeList.push({
-         experimentID,
-         data: barcode
-         });
- 
-        lipscoreList.push({
-         experimentID,
-         data: lipScoreArray
-        });
-    }
- 
-     if (experimentIDsList) {
-         res.json({
-             success: true,
-             treamentProteinData: {
-                 treatment: treatment, 
-                 experimentIDsList: experimentIDsList, 
-                 barcodeList: barcodeList,
-                 lipscoreList: lipscoreList,
-                 differentialAbundanceDataList: differentialAbundanceDataList
              }
          });
      } else {
