@@ -42,17 +42,7 @@ export const searchProteins = async (req, res) => {
 
       // meanwhile use plDDT scores
       const lipScoreArray = processedData[experimentID].map(item => {
-           if (item.score === null) {
-               return -1;
-           } else if (item.score > 0 && item.score < 2) {
-               return 50;
-           } else if (item.score >= 2 && item.score < 4) {
-               return 70;
-           } else if (item.score >= 4 && item.score < 7) {
-               return 90;
-           } else if (item.score >= 7) {
-               return 100;
-           }
+        return item.score !== null ? item.score : -1;
        });
 
       lipscoreList.push({
