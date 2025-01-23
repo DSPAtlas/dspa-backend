@@ -63,12 +63,7 @@ export const findProteinByName = async(proteinName) => {
 export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   try {
     const query = `
-        SELECT da.*, ope.seq,
-        TRIM(SUBSTRING(
-                ope.protein_description, 
-                LOCATE('|', ope.protein_description, LOCATE('|', ope.protein_description) + 1) + 1,
-                LOCATE('OS=', ope.protein_description) - LOCATE('|', ope.protein_description, LOCATE('|', ope.protein_description) + 1) - 2
-        )) AS protein_description
+        SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval
         FROM differential_abundance da
         JOIN organism_proteome_entries ope 
         ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
@@ -89,7 +84,9 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
   try {
     const [rows] = await db.query(`
         SELECT 
-            ga.*, 
+            ga.term,
+            ga.adj_pval,
+            ga.lipexperiment_id,
             gt.accessions
         FROM 
             go_analysis ga
@@ -105,6 +102,8 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
             ga.lipexperiment_id = ?
         AND 
             gt.taxonomy_id = le.taxonomy_id
+        AND 
+            ga.adj_pval < 1
     `, [experimentID]);
     return rows;
 } catch (error) {
