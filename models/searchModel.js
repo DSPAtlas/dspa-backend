@@ -67,7 +67,7 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
         FROM differential_abundance da
         JOIN organism_proteome_entries ope 
         ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
-        WHERE da.lipexperiment_id = ?
+        WHERE da.lipexperiment_id = ? AND da.adj_pval > 0
     `;
     const [rows] = await db.query(query, [experimentID]);
     return rows;
@@ -77,7 +77,56 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
   }
 };
 
+export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => {
+  try {
+    const placeholders = experimentIDs.map(() => '?').join(',');
+    const query = `
+        SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.lipexperiment_id
+        FROM differential_abundance da
+        JOIN organism_proteome_entries ope 
+        ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
+        WHERE da.lipexperiment_id IN (${placeholders}) AND da.adj_pval > 0
+    `;
+    const [rows] = await db.query(query, experimentIDs);
+    return rows;
+  } catch (error) { 
+      console.error('Error in getDifferentialAbundanceByExperimentIDs:', error);
+      throw error;
+  }
+};
 
+export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
+  try {
+    // Create a string with placeholders for each ID
+    const placeholders = experimentIDs.map(() => '?').join(',');
+    const query = `
+        SELECT 
+            ga.term,
+            ga.adj_pval,
+            ga.lipexperiment_id,
+            gt.accessions
+        FROM 
+            go_analysis ga
+        LEFT JOIN 
+            go_term gt ON ga.go_id = gt.go_id
+        INNER JOIN 
+            lip_experiments le ON ga.lipexperiment_id = le.lipexperiment_id
+        WHERE 
+            ga.lipexperiment_id IN (${placeholders})  
+        AND 
+            gt.taxonomy_id = le.taxonomy_id
+        AND 
+            ga.adj_pval < 1
+    `;
+
+    // Pass the array of experiment IDs as the second argument to replace placeholders
+    const [rows] = await db.query(query, experimentIDs);
+    return rows;
+  } catch (error) {
+    console.error('Error in getGoEnrichmentResultsByExperimentIDs:', error);
+    throw error;
+  }
+};
 
 
 export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
@@ -259,4 +308,24 @@ export const getProteinScoreforSingleExperiment = async (experimentID) => {
     console.error('Error in get getProteinScoreforSingleExperiment:', error);
     throw error;
 }
+};
+
+export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
+  try {
+    // Generate placeholders for the SQL query based on the number of experiment IDs
+    const placeholders = experimentIDs.map(() => '?').join(',');
+
+    // Modify the query to use the `IN` clause for multiple IDs
+    const query = `
+        SELECT * FROM protein_scores
+        WHERE lipexperiment_id IN (${placeholders})
+    `;
+
+    // Execute the query with the array of experiment IDs
+    const [rows] = await db.query(query, experimentIDs);
+    return rows;
+  } catch (error) {
+    console.error('Error in getProteinScoresForMultipleExperiments:', error);
+    throw error;
+  }
 };
