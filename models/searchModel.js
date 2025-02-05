@@ -315,10 +315,12 @@ export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
     // Generate placeholders for the SQL query based on the number of experiment IDs
     const placeholders = experimentIDs.map(() => '?').join(',');
 
-    // Modify the query to use the `IN` clause for multiple IDs
+    // Modify the query to use the `IN` clause for multiple IDs and join with organism_proteome_entries
     const query = `
-        SELECT * FROM protein_scores
-        WHERE lipexperiment_id IN (${placeholders})
+        SELECT ps.pg_protein_accessions, ps.cumulativeScore, ps.lipexperiment_id, op.protein_description
+        FROM protein_scores ps
+        JOIN organism_proteome_entries op ON ps.pg_protein_accessions = op.protein_name
+        WHERE ps.lipexperiment_id IN (${placeholders})
     `;
 
     // Execute the query with the array of experiment IDs

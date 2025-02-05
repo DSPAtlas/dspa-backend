@@ -35,26 +35,28 @@ const combineExperiments = (data) => {
 
     // Process each entry only once
     data.forEach(entry => {
-        const { lipexperiment_id: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore } = entry;
+        const { lipexperiment_id: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore, protein_description: protein_description } = entry;
 
         // Initialize the protein data structure if not already present
         if (!combinedData[proteinAccession]) {
             combinedData[proteinAccession] = {
                 totalScore: 0,
-                count: 0
+                count: 0,
+                protein_description // Store the protein description
             };
         }
 
-        // Aggregate cumulative scores directly
+        // Aggregate cumulative scores
         combinedData[proteinAccession].totalScore += cumulativeScore;
         combinedData[proteinAccession].count += 1;
     });
 
     // Convert to array and calculate average
-    const result = Object.entries(combinedData).map(([proteinAccession, { totalScore, count }]) => ({
+    const result = Object.entries(combinedData).map(([proteinAccession, { totalScore, count, protein_description }]) => ({
         proteinAccession,
         averageScore: totalScore / count,
-        count
+        count,
+        protein_description
     }));
 
     // Sort by averageScore in descending order
@@ -62,6 +64,7 @@ const combineExperiments = (data) => {
 
     return result;
 };
+
 
 
 export const returnConditions = async (req, res) => {
