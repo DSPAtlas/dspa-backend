@@ -8,54 +8,6 @@ export const getUniprotData = async (accession) => {
     return response.json();
 };
 
-export const getBarcodesequence = async (jsonData) => {
-  /**
-   * Generate barcode sequences for each experimentID
-   * 
-   * @param {Array} jsonData - The JSON data containing experiment data.
-   * 
-   * @returns {Object} An object where each key is an experimentID and the value is the barcode sequence string.
-   */
-  
-  // Helper function to generate barcode sequence for a single experiment
-  const generateBarcode = (data) => {
-    let result = "";
-
-    for (let d of data) {
-      let character;
-
-      if (d.sig !== null && d.sig !== 0) {
-        character = 'S';
-      } else if (d.detected !== null && d.detected !== 0) {
-        character = 'D';
-      } else {
-        character = 'I';
-      }
-
-      result += character;
-    }
-    return result;
-  }
-
-  // Split data by experimentID
-  const experiments = jsonData.reduce((acc, row) => {
-    if (!acc[row.lipexperiment_id]) {
-      acc[row.lipexperiment_id] = [];
-    }
-    acc[row.lipexperiment_id].push(row);
-    return acc;
-  }, {});
-
-  // Process each experiment's data and generate barcode sequence
-  const barcodes = Object.keys(experiments).reduce((acc, lipexperiment_id) => {
-    acc[lipexperiment_id] = generateBarcode(experiments[lipexperiment_id]);
-    return acc;
-  }, {});
-
-  return barcodes;
-}
-
-
 export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
   try {
       const [rows] = await db.query(`
@@ -118,24 +70,6 @@ export const prepareData = (jsonData, proteinSequence) => {
    * @returns {DataPoint[]} An array of objects with properties `index`, `sig`, `aminoacid`, `detected`, and `score`.
    */
 
-  const generateBarcode = (data) => {
-    let result = "";
-
-    for (let d of data) {
-      let character;
-
-      if (d.sig !== null && d.sig !== 0) {
-        character = 'S';
-      } else if (d.detected !== null && d.detected !== 0) {
-        character = 'D';
-      } else {
-        character = 'I';
-      }
-
-      result += character;
-    }
-    return result;
-  }
 
   // Helper function to process data for a single experiment
   function processExperimentData(data) {
@@ -190,12 +124,7 @@ export const prepareData = (jsonData, proteinSequence) => {
     return acc;
   }, {});
 
-  const barcodes = Object.keys(processedData).reduce((acc, lipexperiment_id) => {
-    acc[lipexperiment_id] = generateBarcode(processedData[lipexperiment_id]);
-    return acc;
-  }, {});
-
-  return {processedData, barcodes};
+  return {processedData};
 }
 
 
@@ -212,7 +141,6 @@ export const getProteinFeatures = async(proteinName) => {
       throw new Error("No protein found for the given taxonomy ID and protein name.");
     }
     const fastaEntry = fastaEntries[0];
-    console.log("fastaentry", fastaEntry);
 
     let pgProteinAccession;
     if (/^[A-Za-z0-9]+$/.test(fastaEntry.protein_name)) {
@@ -221,16 +149,13 @@ export const getProteinFeatures = async(proteinName) => {
       pgProteinAccession = extractProteinAccession(fastaEntry.protein_name); 
     }
     const differentialAbundance = await getDifferentialAbundanceByAccession(pgProteinAccession);
-    console.log(differentialAbundance);
-    const {processedData, barcodes } = prepareData(differentialAbundance, fastaEntry.seq);
+    const {processedData} = prepareData(differentialAbundance, fastaEntry.seq);
     const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
   
     const result = {
       proteinName: pgProteinAccession,
       proteinSequence: fastaEntry.seq,
       differentialAbundanceData: processedData,
-      differentialAbundanceDataMedian: processedData,
-      barcodeSequence: barcodes,
       proteinDescription: proteinDescription
     };
     
