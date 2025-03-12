@@ -34,7 +34,7 @@ export const searchEntries = async (req, res) => {
                 proteinName: /^[A-Za-z0-9]+$/.test(entry.protein_name) 
                     ? entry.protein_name 
                     : extractProteinAccession(entry.protein_name),
-                proteinDescription: extractProteinDescription(entry.protein_description),
+                proteinDescription: entry.protein_description,
                 taxonomyID: entry.taxonomy_id,
                 taxonomyName: getTaxonomyName(entry.taxonomy_id)
             }));
