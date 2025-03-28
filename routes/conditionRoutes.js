@@ -1,12 +1,12 @@
 import express from 'express';
 import { 
-    returnTreatmentGroup, 
+    returnconditionGroup, 
     returnConditions 
-} from '../controllers/treatmentController.js'; 
+} from '../controllers/conditionController.js'; 
 
 const router = express.Router();
 
 router.get('/condition', returnConditions);
-router.get('/treatment', returnTreatmentGroup);
+router.get('/condition', returnconditionGroup);
 
 export default router;

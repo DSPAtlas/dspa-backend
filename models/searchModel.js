@@ -1,6 +1,56 @@
 
 import db from '../config/database.js';
 
+export const getUniprotData = async (accession) => {
+  const url = `https://www.ebi.ac.uk/proteins/api/features/${accession}`;
+  const response = await fetch(url);
+  return response.json();
+};
+
+export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
+try {
+    const [rows] = await db.query(`
+        SELECT * FROM differential_abundance
+        WHERE pg_protein_accessions = ?
+        ORDER BY pos_start
+    `, [pgProteinAccessions]);
+    return rows;
+} catch (error) {
+    console.error('Error in getDifferentialAbundanceByAccession:', error);
+    throw error;
+}
+};
+
+export const extractProteinAccession = (proteinName) => {
+const match = proteinName.match(/^[^|]*\|([^|]+)\|/);
+if (match) {
+    return match[1]; 
+} else {
+    throw new Error(`Protein name "${proteinName}" does not match the expected format.`);
+}
+};
+
+export const findProteinByOrganismAndName = async(taxonomyID, proteinName) => {
+try {
+  const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE taxonomy_id = ? AND protein_name LIKE ?`;
+  const [rows] = await db.query(query, [taxonomyID, `%${proteinName}%`]);
+  return rows;
+} catch (error) {
+  throw error; 
+}
+};
+
+export const getProteinByName = async(proteinName) => {
+try {
+  const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
+  const [rows] = await db.query(query, [`%${proteinName}%`]);
+  return rows;
+} catch (error) {
+  throw error; 
+}
+};
+
+
 export const findProteinBySearchTerm = async (searchTerm) => {
     try {
       const query = `
@@ -25,30 +75,12 @@ export const getTaxonomyName = (taxId) => {
         10090: "Mus musculus",
         559292: "Saccharomyces cerevisiae S288C",
         9606: "Homo sapiens",
-        562: "Escherichia coli"
+        83333: "Escherichia coli"
     };
     
     return taxonomyDict[taxId] || "Taxonomy ID not found";
 };
 
-export const extractProteinDescription = (inputString) => {
-  const regex = /^[^\s]+\s+(.*?)\s+OS=/;
-  const match = inputString.match(regex);
-  return match ? match[1] : "Description not found";
-};
-
-export const extractProteinAccession = (proteinName) => {
-  if (typeof proteinName !== 'string') {
-      throw new TypeError(`Expected a string but received ${typeof proteinName}`);
-  }
-  const match = proteinName.match(/^[^|]*\|([^|]+)\|/);
-  if (match) {
-      return match[1]; 
-  } else {
-      console.log("No match found. Regex did not match the protein name."); 
-      throw new Error(`Protein name "${proteinName}" does not match the expected format.`);
-  }
-};
 
 export const findProteinByName = async(proteinName) => {
   try {
@@ -66,8 +98,8 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
         SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval
         FROM differential_abundance da
         JOIN organism_proteome_entries ope 
-        ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
-        WHERE da.lipexperiment_id = ? AND da.adj_pval > 0
+        ON da.pg_protein_accessions = ope.protein_name
+        WHERE da.dpx_comparison = ? AND da.adj_pval > 0
     `;
     const [rows] = await db.query(query, [experimentID]);
     return rows;
@@ -81,11 +113,11 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
   try {
     const placeholders = experimentIDs.map(() => '?').join(',');
     const query = `
-        SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.lipexperiment_id
+        SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
         FROM differential_abundance da
         JOIN organism_proteome_entries ope 
         ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
-        WHERE da.lipexperiment_id IN (${placeholders}) AND da.adj_pval > 0
+        WHERE da.dpx_comparison IN (${placeholders}) AND da.adj_pval > 0
     `;
     const [rows] = await db.query(query, experimentIDs);
     return rows;
@@ -103,16 +135,16 @@ export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
         SELECT 
             ga.term,
             ga.adj_pval,
-            ga.lipexperiment_id,
+            ga.dpx_comparison,
             gt.accessions
         FROM 
             go_analysis ga
         LEFT JOIN 
             go_term gt ON ga.go_id = gt.go_id
         INNER JOIN 
-            lip_experiments le ON ga.lipexperiment_id = le.lipexperiment_id
+            dynaprot_experiment_comparison  le ON ga.dpx_comparison = le.dpx_comparison
         WHERE 
-            ga.lipexperiment_id IN (${placeholders})  
+            ga.dpx_comparison IN (${placeholders})  
         AND 
             gt.taxonomy_id = le.taxonomy_id
         AND 
@@ -135,7 +167,7 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
         SELECT 
             ga.term,
             ga.adj_pval,
-            ga.lipexperiment_id,
+            ga.dpx_comparison,
             gt.accessions
         FROM 
             go_analysis ga
@@ -144,11 +176,11 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
         ON 
             ga.go_id = gt.go_id
         INNER JOIN 
-            lip_experiments le
+            dynaprot_experiment_comparison le
         ON 
-            ga.lipexperiment_id = le.lipexperiment_id
+            ga.dpx_comparison = le.dpx_comparison
         WHERE 
-            ga.lipexperiment_id = ?
+            ga.dpx_comparison = ?
         AND 
             gt.taxonomy_id = le.taxonomy_id
         AND 
@@ -163,7 +195,7 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
 
 
 export const getAllExperiments = async () => {
-  const query = 'SELECT * FROM lip_experiments';
+  const query = 'SELECT * FROM dynaprot_experiment';
   try {
       const [rows] = await db.query(query);
       return rows;
@@ -174,15 +206,15 @@ export const getAllExperiments = async () => {
 };
 
 
-export const getExperimentsByTreatment = async (treatment) => {
+export const getExperimentsByCondition = async (condition) => {
   try {
     const [rows] = await db.query(
       `
-      SELECT lipexperiment_id 
-      FROM lip_experiments 
+      SELECT dpx_comparison
+      FROM dynaprot_experiment_comparison
       WHERE \`condition\` = ?
       `,
-      [treatment]
+      [condition]
     );
     return rows;
   } catch (error) {
@@ -193,8 +225,8 @@ export const getExperimentsByTreatment = async (treatment) => {
 export const getAssociatedExperimentIDs = async (groupID) => {
   try {
       const [rows] = await db.query(`
-          SELECT * FROM lip_experiments
-          WHERE group_id = ?
+          SELECT * FROM dynaprot_experiment_comparison
+          WHERE dynaprot_experiment = ?
       `, [groupID]);
       return rows;
   } catch (error) {
@@ -206,7 +238,7 @@ export const getAssociatedExperimentIDs = async (groupID) => {
 export const getConditions = async () => {
   try {
       const [rows] = await db.query(`
-          SELECT DISTINCT \`condition\` FROM lip_experiments WHERE \`condition\` IS NOT NULL
+          SELECT DISTINCT \`condition\` FROM dynaprot_experiment_comparison WHERE \`condition\` IS NOT NULL
       `);
       return rows;
   } catch (error) {
@@ -220,7 +252,7 @@ export const getDifferentialAbundanceByAccessionGroup = async (pgProteinAccessio
       const [rows] = await db.query(`
           SELECT * FROM differential_abundance
           WHERE pg_protein_accessions = ?
-          AND lipexperiment_id = ?
+          AND dpx_comparison = ?
           ORDER BY pos_start
       `, [pgProteinAccessions, groupID]);
       return rows;
@@ -237,7 +269,7 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
 
     const [rows] = await db.query(`
         SELECT * FROM lip_experiments
-        WHERE lipexperiment_id IN (${placeholders})
+        WHERE dpx_comparison IN (${placeholders})
     `, experimentIDsList);
 
     return rows;
@@ -247,11 +279,11 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
   }
 };
 
-export const fetchAllTreatmentData = async (condition) => {
+export const fetchAllConditionData = async (condition) => {
   try {
     const [rows] = await db.query(`
         SELECT
-            le.lipexperiment_id,
+            le.dpx_compariosn,
             le.condition,
             da.pg_protein_accessions,
             da.diff AS differential_abundance_value,
@@ -263,19 +295,19 @@ export const fetchAllTreatmentData = async (condition) => {
         FROM
             lip_experiments le
         JOIN
-            differential_abundance da ON le.lipexperiment_id = da.lipexperiment_id
+            differential_abundance da ON le.dpx_comparison = da.dpx_comparison
         LEFT JOIN
-            go_analysis ge ON le.lipexperiment_id = ge.lipexperiment_id
+            go_analysis ge ON le.dpx_comparison = ge.dpx_comparison
         LEFT JOIN
-            protein_scores ps ON da.pg_protein_accessions = ps.pg_protein_accessions AND le.lipexperiment_id = ps.lipexperiment_id
+            protein_scores ps ON da.pg_protein_accessions = ps.pg_protein_accessions AND le.dpx_comparison = ps.dpx_comparison
         WHERE
             le.condition = ?
         GROUP BY
-            le.lipexperiment_id, le.condition, da.pg_protein_accessions, da.diff, da.pos_start, da.adj_pval, ps.cumulativeScore
+            le.dpx_comparison, le.condition, da.pg_protein_accessions, da.diff, da.pos_start, da.adj_pval, ps.cumulativeScore
     `, [condition]);
     return rows;
   } catch (error) {
-    console.error('Error in fetchAllTreatmentData', error);
+    console.error('Error in fetchAllConditonData', error);
     throw error;
   }
 };
@@ -286,8 +318,8 @@ export const fetchAllTreatmentData = async (condition) => {
 export const getExperimentMetaData = async (experimentID) => {
   try {
     const [rows] = await db.query(`
-        SELECT * FROM lip_experiments
-        WHERE lipexperiment_id = ?
+        SELECT * FROM dynaprot_experiment_comparison
+        WHERE dpx_comparison = ?
     `, [experimentID]);
     return rows;
 } catch (error) {
@@ -301,7 +333,7 @@ export const getProteinScoreforSingleExperiment = async (experimentID) => {
   try {
     const [rows] = await db.query(`
         SELECT * FROM protein_scores
-        WHERE lipexperiment_id = ?
+        WHERE dpx_comparison = ?
     `, [experimentID]);
     return rows;
 } catch (error) {
@@ -317,10 +349,10 @@ export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
 
     // Modify the query to use the `IN` clause for multiple IDs and join with organism_proteome_entries
     const query = `
-        SELECT ps.pg_protein_accessions, ps.cumulativeScore, ps.lipexperiment_id, op.protein_description
+        SELECT ps.pg_protein_accessions, ps.cumulativeScore, ps.dpx_comparison, op.protein_description
         FROM protein_scores ps
         JOIN organism_proteome_entries op ON ps.pg_protein_accessions = op.protein_name
-        WHERE ps.lipexperiment_id IN (${placeholders})
+        WHERE ps.dpx_comparison IN (${placeholders})
     `;
 
     // Execute the query with the array of experiment IDs

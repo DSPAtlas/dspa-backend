@@ -1,7 +1,7 @@
 import { 
     getConditions,
     getDifferentialAbundanceByExperimentIDs,
-    getExperimentsByTreatment, 
+    getExperimentsByCondition, 
     getProteinScoresForMultipleExperiments,
     getGoEnrichmentResultsByExperimentIDs
 
@@ -11,13 +11,13 @@ import {
 import Joi from 'joi';
 
 
-const queryTreatment = Joi.object({
-    treatment: Joi.string().trim().required()
+const querycondition = Joi.object({
+    condition: Joi.string().trim().required()
 });
 
 const categorizeDataByExperiment = (data) => {
     const categorized = data.reduce((acc, curr) => {
-        const experimentID = curr.lipexperiment_id;
+        const experimentID = curr.dpx_comparison;
         let experimentEntry = acc.find(entry => entry.experimentID === experimentID);
         if (!experimentEntry) {
             experimentEntry = { experimentID, data: [] };
@@ -35,7 +35,7 @@ const combineExperiments = (data) => {
 
     // Process each entry only once
     data.forEach(entry => {
-        const { lipexperiment_id: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore, protein_description: protein_description } = entry;
+        const { dpx_comparison: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore, protein_description: protein_description } = entry;
 
         // Initialize the protein data structure if not already present
         if (!combinedData[proteinAccession]) {
@@ -91,9 +91,9 @@ export const returnConditions = async (req, res) => {
     }
 };
 
-export const returnTreatmentGroup = async(req, res) => {
+export const returnconditionGroup = async(req, res) => {
     try {
-        const { value, error } = queryTreatment.validate(req.query);
+        const { value, error } = querycondition.validate(req.query);
         if (error) {
           return res.status(400).json({ 
             success: false, 
@@ -102,10 +102,10 @@ export const returnTreatmentGroup = async(req, res) => {
         });
         }
     
-    const { treatment } = value;
+    const { condition } = value;
 
-    const experimentIDs = await getExperimentsByTreatment(treatment);
-    const experimentIDsList = experimentIDs.map(item => item.lipexperiment_id);
+    const experimentIDs = await getExperimentsByCondition(condition);
+    const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
 
     const [differentialAbundance, proteinScores, goEnrichmentResults] = await Promise.all([
         getDifferentialAbundanceByExperimentIDs(experimentIDsList),
@@ -120,8 +120,8 @@ export const returnTreatmentGroup = async(req, res) => {
     if (experimentIDsList) {
          res.json({
              success: true,
-             treatmentData: {
-                treatment: treatment, 
+             conditionData: {
+                condition: condition, 
                 experimentIDsList: experimentIDs, 
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: proteinScoresTable,

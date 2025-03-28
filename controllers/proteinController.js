@@ -1,11 +1,11 @@
 import Joi from 'joi';
 import { 
-  getProteinFeatures, 
-  getUniprotData
-} from '../models/proteinModel.js';
-import { 
+  getUniprotData,
   getExperimentsMetaData
 } from '../models/searchModel.js';
+import { 
+  getProteinFeatures
+} from '../models/proteinModel.js';
 
 
 const querySchema = Joi.object({
