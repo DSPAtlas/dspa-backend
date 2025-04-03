@@ -6,7 +6,7 @@ import {
 
 const router = express.Router();
 
-router.get('/condition', returnConditions);
-router.get('/condition', returnconditionGroup);
+router.get('/allconditions', returnConditions);
+router.get('/data', returnconditionGroup);
 
 export default router;

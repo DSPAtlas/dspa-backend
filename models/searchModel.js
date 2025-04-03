@@ -40,7 +40,7 @@ try {
 }
 };
 
-export const getProteinByName = async(proteinName) => {
+export const getProteinDataByName = async(proteinName) => {
 try {
   const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
   const [rows] = await db.query(query, [`%${proteinName}%`]);
@@ -268,7 +268,7 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
     const placeholders = experimentIDsList.map(() => '?').join(', ');
 
     const [rows] = await db.query(`
-        SELECT * FROM lip_experiments
+        SELECT * FROM dynaprot_experiment_comparison
         WHERE dpx_comparison IN (${placeholders})
     `, experimentIDsList);
 
@@ -293,7 +293,7 @@ export const fetchAllConditionData = async (condition) => {
             GROUP_CONCAT(DISTINCT ge.go_id SEPARATOR ', ') AS go_ids,
             GROUP_CONCAT(DISTINCT ge.term SEPARATOR ', ') AS go_terms
         FROM
-            lip_experiments le
+            dynaprot_experiment_comparison le
         JOIN
             differential_abundance da ON le.dpx_comparison = da.dpx_comparison
         LEFT JOIN
