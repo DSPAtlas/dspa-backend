@@ -117,7 +117,6 @@ export const returnconditionGroup = async(req, res) => {
     const goEnrichmentList = categorizeDataByExperiment(goEnrichmentResults);
     const proteinScoresTable = combineExperiments(proteinScores);
 
-  
     if (experimentIDsList) {
          res.json({
              success: true,

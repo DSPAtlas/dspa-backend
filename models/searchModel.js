@@ -129,29 +129,19 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
 
 export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
   try {
-    // Create a string with placeholders for each ID
     const placeholders = experimentIDs.map(() => '?').join(',');
     const query = `
         SELECT 
-            ga.term,
-            ga.adj_pval,
-            ga.dpx_comparison,
-            gt.accessions
+          term,
+          adj_pval,
+          dpx_comparison
         FROM 
-            go_analysis ga
-        LEFT JOIN 
-            go_term gt ON ga.go_id = gt.go_id
-        INNER JOIN 
-            dynaprot_experiment_comparison  le ON ga.dpx_comparison = le.dpx_comparison
+            go_analysis 
         WHERE 
-            ga.dpx_comparison IN (${placeholders})  
+            dpx_comparison IN (${placeholders})  
         AND 
-            gt.taxonomy_id = le.taxonomy_id
-        AND 
-            ga.adj_pval < 1
+            adj_pval < 1
     `;
-
-    // Pass the array of experiment IDs as the second argument to replace placeholders
     const [rows] = await db.query(query, experimentIDs);
     return rows;
   } catch (error) {
