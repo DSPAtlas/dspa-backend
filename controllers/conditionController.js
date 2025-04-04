@@ -116,13 +116,14 @@ export const returnconditionGroup = async(req, res) => {
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialAbundance);
     const goEnrichmentList = categorizeDataByExperiment(goEnrichmentResults);
     const proteinScoresTable = combineExperiments(proteinScores);
+
   
     if (experimentIDsList) {
          res.json({
              success: true,
              conditionData: {
                 condition: condition, 
-                experimentIDsList: experimentIDs, 
+                experimentIDsList: experimentIDsList, 
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: proteinScoresTable,
                 goEnrichmentList: goEnrichmentList
