@@ -33,7 +33,6 @@ const categorizeDataByExperiment = (data) => {
 const combineExperiments = (data) => {
     const combinedData = {};
 
-    // Process each entry only once
     data.forEach(entry => {
         const { dpx_comparison: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore, protein_description: protein_description } = entry;
 
@@ -50,8 +49,6 @@ const combineExperiments = (data) => {
         combinedData[proteinAccession].totalScore += cumulativeScore;
         combinedData[proteinAccession].count += 1;
     });
-
-    // Convert to array and calculate average
     const result = Object.entries(combinedData).map(([proteinAccession, { totalScore, count, protein_description }]) => ({
         proteinAccession,
         averageScore: totalScore / count,
@@ -59,7 +56,6 @@ const combineExperiments = (data) => {
         protein_description
     }));
 
-    // Sort by averageScore in descending order
     result.sort((a, b) => b.averageScore - a.averageScore);
 
     return result;
@@ -104,28 +100,54 @@ export const returnconditionGroup = async(req, res) => {
     
     const { condition } = value;
 
+    const extractGoTerms = (data) => {
+        const goTermsMap = new Map();
+    
+        data.forEach(item => {
+            const goTerm = item.go_term;
+            const proteinAccessions = item.accessions ? item.accessions.split(',') : [];
+    
+            if (!goTermsMap.has(goTerm)) {
+                goTermsMap.set(goTerm, { go_term: goTerm, accessions: new Set() });
+            }
+    
+            // Add each protein accession to the set
+            proteinAccessions.forEach(accession => {
+                goTermsMap.get(goTerm).accessions.add(accession);
+            });
+        });
+    
+        return Array.from(goTermsMap.values()).map(item => ({
+            go_term: item.go_term,
+            accessions: Array.from(item.accessions)
+        }));
+    };
+    
     const experimentIDs = await getExperimentsByCondition(condition);
     const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
 
-    const [differentialAbundance, proteinScores, goEnrichmentResults] = await Promise.all([
+    const [differentialAbundance, proteinScores, goEnrichmentData] = await Promise.all([
         getDifferentialAbundanceByExperimentIDs(experimentIDsList),
         getProteinScoresForMultipleExperiments(experimentIDsList), 
         getGoEnrichmentResultsByExperimentIDs(experimentIDsList) 
     ]);
-
+  
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialAbundance);
-    const goEnrichmentList = categorizeDataByExperiment(goEnrichmentResults);
+    const extractedGoTerms = extractGoTerms(goEnrichmentData);
     const proteinScoresTable = combineExperiments(proteinScores);
+    const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);
 
     if (experimentIDsList) {
          res.json({
              success: true,
              conditionData: {
                 condition: condition, 
+                goTerms:  extractedGoTerms,
                 experimentIDsList: experimentIDsList, 
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: proteinScoresTable,
-                goEnrichmentList: goEnrichmentList
+                goEnrichmentData: filteredGoEnrichmentData,
+
              }
          });
      } else {

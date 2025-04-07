@@ -110,38 +110,60 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
 };
 
 export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => {
-  try {
-    const placeholders = experimentIDs.map(() => '?').join(',');
-    const query = `
-        SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
-        FROM differential_abundance da
-        JOIN organism_proteome_entries ope 
-        ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
-        WHERE da.dpx_comparison IN (${placeholders}) AND da.adj_pval > 0
-    `;
-    const [rows] = await db.query(query, experimentIDs);
-    return rows;
-  } catch (error) { 
-      console.error('Error in getDifferentialAbundanceByExperimentIDs:', error);
-      throw error;
+  if (experimentIDs.length > 0) {  
+    try {
+      const placeholders = experimentIDs.map(() => '?').join(',');
+      const query = `
+          SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
+          FROM differential_abundance da
+          JOIN organism_proteome_entries ope 
+          ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
+          WHERE da.dpx_comparison IN (${placeholders}) AND da.adj_pval > 0
+      `;
+      const [rows] = await db.query(query, experimentIDs);
+      return rows;
+    } catch (error) { 
+        console.error('Error in getDifferentialAbundanceByExperimentIDs:', error);
+        throw error;
+    }
+  } else {
+    console.log("No experiment IDs provided");
+    return [];  
   }
 };
 
+
 export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
   try {
+    // Early return if the experimentIDs array is empty
+    if (!Array.isArray(experimentIDs) || experimentIDs.length === 0) {
+      console.warn('No experiment IDs provided for GO enrichment.');
+      return []; // Return an empty array to indicate no results
+    }
+
+    // Generate placeholders for the SQL query based on the number of experiment IDs
     const placeholders = experimentIDs.map(() => '?').join(',');
+
+    // Construct the query using the placeholders
     const query = `
         SELECT 
-          term,
-          adj_pval,
-          dpx_comparison
+            gt.go_term,
+            ga.adj_pval,
+            ga.dpx_comparison,
+            GROUP_CONCAT(DISTINCT gt.accessions ORDER BY gt.accessions ASC) AS accessions
         FROM 
-            go_analysis 
+            go_analysis ga
+        LEFT JOIN 
+            go_term gt ON ga.go_id = gt.go_id
+        INNER JOIN 
+            dynaprot_experiment_comparison le ON ga.dpx_comparison = le.dpx_comparison
         WHERE 
-            dpx_comparison IN (${placeholders})  
-        AND 
-            adj_pval < 1
+            ga.dpx_comparison IN (${placeholders})  
+        GROUP BY 
+            gt.go_term, ga.adj_pval, ga.dpx_comparison;
     `;
+
+    // Execute the query with the array of experiment IDs
     const [rows] = await db.query(query, experimentIDs);
     return rows;
   } catch (error) {
@@ -151,11 +173,12 @@ export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
 };
 
 
+
 export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
   try {
     const [rows] = await db.query(`
         SELECT 
-            ga.term,
+            gt.term,
             ga.adj_pval,
             ga.dpx_comparison,
             gt.accessions
@@ -334,6 +357,12 @@ export const getProteinScoreforSingleExperiment = async (experimentID) => {
 
 export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
   try {
+    // Early return if the experimentIDs array is empty
+    if (!Array.isArray(experimentIDs) || experimentIDs.length === 0) {
+      console.warn('No experiment IDs provided for protein scores.');
+      return []; // Return an empty array to indicate no results
+    }
+
     // Generate placeholders for the SQL query based on the number of experiment IDs
     const placeholders = experimentIDs.map(() => '?').join(',');
 
