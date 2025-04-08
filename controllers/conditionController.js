@@ -3,7 +3,8 @@ import {
     getDifferentialAbundanceByExperimentIDs,
     getExperimentsByCondition, 
     getProteinScoresForMultipleExperiments,
-    getGoEnrichmentResultsByExperimentIDs
+    getGoEnrichmentResultsByExperimentIDs,
+    getDoseResponseDatabyExperiments
 
 } from '../models/searchModel.js';
 
@@ -129,9 +130,10 @@ export const returnconditionGroup = async(req, res) => {
     const [differentialAbundance, proteinScores, goEnrichmentData] = await Promise.all([
         getDifferentialAbundanceByExperimentIDs(experimentIDsList),
         getProteinScoresForMultipleExperiments(experimentIDsList), 
-        getGoEnrichmentResultsByExperimentIDs(experimentIDsList) 
+        getGoEnrichmentResultsByExperimentIDs(experimentIDsList)
     ]);
   
+
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialAbundance);
     const extractedGoTerms = extractGoTerms(goEnrichmentData);
     const proteinScoresTable = combineExperiments(proteinScores);
@@ -147,7 +149,6 @@ export const returnconditionGroup = async(req, res) => {
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: proteinScoresTable,
                 goEnrichmentData: filteredGoEnrichmentData,
-
              }
          });
      } else {

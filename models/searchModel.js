@@ -363,10 +363,8 @@ export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
       return []; // Return an empty array to indicate no results
     }
 
-    // Generate placeholders for the SQL query based on the number of experiment IDs
     const placeholders = experimentIDs.map(() => '?').join(',');
 
-    // Modify the query to use the `IN` clause for multiple IDs and join with organism_proteome_entries
     const query = `
         SELECT ps.pg_protein_accessions, ps.cumulativeScore, ps.dpx_comparison, op.protein_description
         FROM protein_scores ps
@@ -374,11 +372,85 @@ export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
         WHERE ps.dpx_comparison IN (${placeholders})
     `;
 
-    // Execute the query with the array of experiment IDs
     const [rows] = await db.query(query, experimentIDs);
     return rows;
   } catch (error) {
     console.error('Error in getProteinScoresForMultipleExperiments:', error);
     throw error;
+  }
+};
+
+export const getDoseResponseDatabyExperiments = async (experimentIDs, proteinAccession) => {
+  try {
+    const dynaprot_experiments = [...new Set(
+      experimentIDs
+        .filter(id => typeof id === 'string' && id.includes('-')) 
+        .map(id => id.split('-')[0]) 
+    )];
+
+    if (dynaprot_experiments.length === 0) return []; 
+
+    const placeholders = dynaprot_experiments.map(() => '?').join(',');
+
+    const query = `
+       SELECT * 
+       FROM dose_response_fit
+       WHERE dynaprot_experiment IN (${placeholders}) AND pg_protein_accessions = ?
+    `;
+    const [rows] = await db.query(query, [...dynaprot_experiments, proteinAccession]);
+    return rows || [];
+  } catch (error) {
+    console.error('Error in getDoseResponseDatabyExperiments:', error.message);
+    return []; 
+  }
+};
+
+export const getDoseResponseDataByProtein = async (dynaprotExperiment, proteinAccession) => {
+  try {
+    // Step 1: Get peptides (pep_grouping_key) associated with the protein accession
+    const pepKeyQuery = `
+      SELECT pep_grouping_key
+      FROM dose_response_fit
+      WHERE dynaprot_experiment = ? 
+        AND pg_protein_accessions = ?;
+    `;
+
+    const [pepKeyRows] = await db.query(pepKeyQuery, [dynaprotExperiment, proteinAccession.trim()]);;
+   
+    const pepKeys = pepKeyRows.map(row => row.pep_grouping_key);
+    if (pepKeys.length === 0) {
+      return { doseResponseDataPlotCurve: [], doseResponseDataPlotPoints: [] };
+    }
+    
+
+    // Step 2: Generate placeholders
+    const placeholders = pepKeys.map(() => '?').join(', ');
+
+    // Step 3: Fetch curve data
+    const curveQuery = `
+      SELECT dynaprot_experiment, pep_grouping_key, dose, prediction, lower, upper
+      FROM dose_response_plot_curve
+      WHERE dynaprot_experiment = ?
+        AND pep_grouping_key IN (${placeholders});
+    `;
+    const [doseResponseDataPlotCurve] = await db.query(curveQuery, [dynaprotExperiment, ...pepKeys]);
+
+    // Step 4: Fetch plot points
+    const pointsQuery = `
+      SELECT dynaprot_experiment, pep_grouping_key, normalised_intensity_log2, dose
+      FROM dose_response_plot_points
+      WHERE dynaprot_experiment = ?
+        AND pep_grouping_key IN (${placeholders});
+    `;
+    const [doseResponseDataPlotPoints] = await db.query(pointsQuery, [dynaprotExperiment, ...pepKeys]);
+
+    // Step 5: Return response
+    return {
+      doseResponseDataPlotCurve: doseResponseDataPlotCurve || [],
+      doseResponseDataPlotPoints: doseResponseDataPlotPoints || []
+    };
+  } catch (error) {
+    console.error('Error in getDoseResponseDataByProtein:', error.message);
+    return { doseResponseDataPlotCurve: [], doseResponseDataPlotPoints: [] };
   }
 };
