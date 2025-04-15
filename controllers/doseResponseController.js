@@ -20,9 +20,9 @@ export const doseResponseData = async (req, res) => {
 
     const { dynaprotExperiment, proteinName } = value;
     try {
-        const doseReponseData= await getDoseResponseDataByProtein(dynaprotExperiment, proteinName);
+        const doseResponseData = await getDoseResponseDataByProtein(dynaprotExperiment, proteinName);
         
-        if (doseReponseData.length === 0) {
+        if (doseResponseData.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'No experiments found.'
@@ -32,8 +32,8 @@ export const doseResponseData = async (req, res) => {
 
         res.json({
             success: true,
-            doseReponseDataPlotCurve: doseReponseData.doseResponseDataPlotCurve,
-            doseReponseDataPlotPoints: doseReponseData.doseResponseDataPlotPoints
+            doseResponseDataPlotCurve: doseResponseData.doseResponseDataPlotCurve,
+            doseResponseDataPlotPoints: doseResponseData.doseResponseDataPlotPoints
         });
         
     } catch (error) {
