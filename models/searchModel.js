@@ -132,6 +132,32 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
   }
 };
 
+export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_experiment) => {
+  try {
+    const query = `
+      SELECT 
+        dac.*
+      FROM 
+        dynaprot_experiment de
+      JOIN 
+        dynaprot_experiment_comparison \`dec\` 
+          ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
+      JOIN 
+        differential_abundance dac 
+          ON \`dec\`.dpx_comparison = dac.dpx_comparison
+      WHERE 
+        de.dynaprot_experiment = ?;
+    `;
+    const [rows] = await db.query(query, [dynaprot_experiment]);
+    return rows;
+  } catch (error) { 
+    console.error('Error in getDifferentialAbundanceByDynaProtExperiment:', error);
+    throw error;
+  }
+};
+
+
+
 
 export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
   try {
@@ -174,11 +200,11 @@ export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
 
 
 
-export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
+export const getGoEnrichmentResultsByExperimentID = async (dynaprot_experiment) => {
   try {
     const [rows] = await db.query(`
         SELECT 
-            gt.term,
+            gt.go_term,
             ga.adj_pval,
             ga.dpx_comparison,
             gt.accessions
@@ -198,7 +224,7 @@ export const getGoEnrichmentResultsByExperimentID = async (experimentID) => {
             gt.taxonomy_id = le.taxonomy_id
         AND 
             ga.adj_pval < 1
-    `, [experimentID]);
+    `, [dynaprot_experiment]);
     return rows;
 } catch (error) {
     console.error('Error in get getGoEnrichmentResultsByExperimentID(experimentID):', error);
@@ -247,6 +273,9 @@ export const getAssociatedExperimentIDs = async (groupID) => {
       throw error;
   }
 };
+
+
+
 
 export const getConditions = async () => {
   try {
@@ -328,7 +357,7 @@ export const fetchAllConditionData = async (condition) => {
 
 
 
-export const getExperimentMetaData = async (experimentID) => {
+export const getExperimentMetaData = async (dynaprot_experiment) => {
   try {
     const [rows] = await db.query(`
         SELECT * FROM dynaprot_experiment_comparison
@@ -340,6 +369,20 @@ export const getExperimentMetaData = async (experimentID) => {
     throw error;
 }
 };
+
+export const getDynaProtExperimentMetaData = async (dynaprot_experiment) => {
+  try {
+    const [rows] = await db.query(`
+        SELECT * FROM dynaprot_experiment
+        WHERE dynaprot_experiment = ?
+    `, [dynaprot_experiment]);
+    return rows;
+} catch (error) {
+    console.error('Error in get  getDynaProtExperimentMetaData:', error);
+    throw error;
+}
+};
+
 
 
 export const getProteinScoreforSingleExperiment = async (experimentID) => {

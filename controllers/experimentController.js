@@ -1,6 +1,6 @@
 import { 
-    getDifferentialAbundanceByExperimentID, 
-    getExperimentMetaData, 
+    getDifferentialAbundanceByDynaProtExperiment, 
+    getDynaProtExperimentMetaData, 
     getGoEnrichmentResultsByExperimentID,
     getProteinScoreforSingleExperiment } from '../models/searchModel.js';
 import Joi from 'joi';
@@ -11,6 +11,21 @@ const querySchemaExperiments = Joi.object({
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(10)
 });
+
+const categorizeDataByExperiment = (data) => {
+    const categorized = data.reduce((acc, curr) => {
+        const experimentID = curr.dpx_comparison;
+        let experimentEntry = acc.find(entry => entry.experimentID === experimentID);
+        if (!experimentEntry) {
+            experimentEntry = { experimentID, data: [] };
+            acc.push(experimentEntry);
+        }
+        experimentEntry.data.push(curr);
+        return acc;
+    }, []);
+    return categorized;
+};
+
 
 export const returnExperiment = async(req, res) => {
 
@@ -28,20 +43,20 @@ export const returnExperiment = async(req, res) => {
 
     const offset = (page - 1) * limit;
     
-    const metadata = await getExperimentMetaData(experimentID);
-    const differentialabundance = await getDifferentialAbundanceByExperimentID(experimentID);
+    const metadata = await  getDynaProtExperimentMetaData(experimentID);
+    const differentialabundance = await getDifferentialAbundanceByDynaProtExperiment(experimentID);
     const proteinScores = await getProteinScoreforSingleExperiment(experimentID);
     const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
 
-    console.log("proteinscores", proteinScores);
-    
+    const differentialAbundanceDataList = categorizeDataByExperiment(differentialabundance);
+
     if (metadata) {
         res.json({
             success: true,
             experimentData: {
                 experimentID: experimentID, 
                 metaData: metadata[0],
-                differentialAbundanceData: differentialabundance,
+                differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScores: proteinScores,
                 goEnrichment: goenrichmentresults,
                 page,
