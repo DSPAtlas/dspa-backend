@@ -54,11 +54,11 @@ try {
 export const findProteinBySearchTerm = async (searchTerm) => {
     try {
       const query = `
-         SELECT DISTINCT o.seq, o.protein_name, o.protein_description, o.taxonomy_id 
+         SELECT DISTINCT o.seq, o.protein_name, o.protein_description, o.taxonomy_id, o.gene_name 
           FROM organism_proteome_entries o
           JOIN differential_abundance d
           ON o.protein_name = d.pg_protein_accessions
-          WHERE o.protein_name LIKE ? OR o.protein_description LIKE ?
+          WHERE o.protein_name LIKE ? OR o.protein_description LIKE ? OR o.gene_name LIKE ?
       `;
 
       const params = [`%${searchTerm}%`, `%${searchTerm}%`];
@@ -155,6 +155,39 @@ export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_expe
     throw error;
   }
 };
+
+export const getGoEnrichmentResultsByDynaProtExperiment = async (dynaprot_experiment) => {
+  try {
+    const query = `
+      SELECT 
+        gt.go_term,
+        ga.adj_pval,
+        ga.dpx_comparison,
+        gt.accessions
+      FROM 
+        dynaprot_experiment de
+      JOIN 
+        dynaprot_experiment_comparison \`dec\` 
+          ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
+      JOIN 
+        go_analysis ga 
+          ON \`dec\`.dpx_comparison = ga.dpx_comparison
+      LEFT JOIN 
+        go_term gt 
+          ON ga.go_id = gt.go_id
+      WHERE 
+        de.dynaprot_experiment = ?
+        AND gt.taxonomy_id = \`dec\`.taxonomy_id
+        AND ga.adj_pval < 1
+    `;
+    const [rows] = await db.query(query, [dynaprot_experiment]);
+    return rows;
+  } catch (error) {
+    console.error('Error in getGoEnrichmentResultsByDynaProtExperiment:', error);
+    throw error;
+  }
+};
+
 
 
 
@@ -382,6 +415,41 @@ export const getDynaProtExperimentMetaData = async (dynaprot_experiment) => {
     throw error;
 }
 };
+
+export const getSummarizedProteinScoreByDynaProtExperiment = async (dynaprot_experiment) => {
+  try {
+    const query = `
+      SELECT 
+        ps.pg_protein_accessions,
+        ope.protein_description,  -- from organism_proteome_entries
+        SUM(ps.cumulativeScore) AS total_cumulative_score
+      FROM 
+        dynaprot_experiment de
+      JOIN 
+        dynaprot_experiment_comparison \`dec\`
+        ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
+      JOIN 
+        protein_scores ps
+        ON \`dec\`.dpx_comparison = ps.dpx_comparison
+      LEFT JOIN 
+        organism_proteome_entries ope
+        ON ps.pg_protein_accessions = ope.protein_name
+        AND \`dec\`.taxonomy_id = ope.taxonomy_id  -- ensure matching species
+      WHERE 
+        de.dynaprot_experiment = ?
+      GROUP BY 
+        ps.pg_protein_accessions, ope.protein_description
+      ORDER BY 
+        total_cumulative_score DESC
+    `;
+    const [rows] = await db.query(query, [dynaprot_experiment]);
+    return rows;
+  } catch (error) {
+    console.error('Error in getSummarizedProteinScoreByDynaProtExperiment:', error);
+    throw error;
+  }
+};
+
 
 
 
