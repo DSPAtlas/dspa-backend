@@ -1,8 +1,8 @@
 import { 
     getDifferentialAbundanceByDynaProtExperiment, 
     getDynaProtExperimentMetaData, 
-    getGoEnrichmentResultsByExperimentID,
-    getProteinScoreforSingleExperiment } from '../models/searchModel.js';
+    getGoEnrichmentResultsByDynaProtExperiment,
+    getSummarizedProteinScoreByDynaProtExperiment } from '../models/searchModel.js';
 import Joi from 'joi';
 
 
@@ -45,8 +45,8 @@ export const returnExperiment = async(req, res) => {
     
     const metadata = await  getDynaProtExperimentMetaData(experimentID);
     const differentialabundance = await getDifferentialAbundanceByDynaProtExperiment(experimentID);
-    const proteinScores = await getProteinScoreforSingleExperiment(experimentID);
-    const goenrichmentresults = await getGoEnrichmentResultsByExperimentID(experimentID);
+    const proteinScores = await getSummarizedProteinScoreByDynaProtExperiment(experimentID);
+    const goenrichmentresults = await getGoEnrichmentResultsByDynaProtExperiment(experimentID);
 
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialabundance);
 
@@ -58,7 +58,7 @@ export const returnExperiment = async(req, res) => {
                 metaData: metadata[0],
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScores: proteinScores,
-                goEnrichment: goenrichmentresults,
+                goEnrichmentData: goenrichmentresults,
                 page,
                 limit
             }

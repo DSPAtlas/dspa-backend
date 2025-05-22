@@ -31,6 +31,7 @@ export const searchEntries = async (req, res) => {
             const tableData = results.map(entry => ({
                 proteinName: entry.protein_name,
                 proteinDescription: entry.protein_description,
+                geneName: entry.gene_name,
                 taxonomyID: entry.taxonomy_id,
                 taxonomyName: getTaxonomyName(entry.taxonomy_id)
             }));
