@@ -1,8 +1,6 @@
 import Joi from 'joi';
 import { findProteinBySearchTerm, 
-    getTaxonomyName,
-    extractProteinDescription, 
-    extractProteinAccession} from '../models/searchModel.js';
+    getTaxonomyName} from '../models/searchModel.js';
 
 
 const querySchema = Joi.object({
@@ -31,9 +29,7 @@ export const searchEntries = async (req, res) => {
             });
         } else {
             const tableData = results.map(entry => ({
-                proteinName: /^[A-Za-z0-9]+$/.test(entry.protein_name) 
-                    ? entry.protein_name 
-                    : extractProteinAccession(entry.protein_name),
+                proteinName: entry.protein_name,
                 proteinDescription: entry.protein_description,
                 taxonomyID: entry.taxonomy_id,
                 taxonomyName: getTaxonomyName(entry.taxonomy_id)

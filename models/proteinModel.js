@@ -1,55 +1,9 @@
 import db from '../config/database.js';
 import fetch from 'node-fetch';
 import { median } from 'mathjs'; 
+import { getProteinDataByName } from './searchModel.js';
+import { getDifferentialAbundanceByAccession } from './searchModel.js';
 
-export const getUniprotData = async (accession) => {
-    const url = `https://www.ebi.ac.uk/proteins/api/features/${accession}`;
-    const response = await fetch(url);
-    return response.json();
-};
-
-export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
-  try {
-      const [rows] = await db.query(`
-          SELECT * FROM differential_abundance
-          WHERE pg_protein_accessions = ?
-          ORDER BY pos_start
-      `, [pgProteinAccessions]);
-      return rows;
-  } catch (error) {
-      console.error('Error in getDifferentialAbundanceByAccession:', error);
-      throw error;
-  }
-};
-
-export const extractProteinAccession = (proteinName) => {
-  const match = proteinName.match(/^[^|]*\|([^|]+)\|/);
-  if (match) {
-      return match[1]; 
-  } else {
-      throw new Error(`Protein name "${proteinName}" does not match the expected format.`);
-  }
-};
-
-export const findProteinByOrganismAndName = async(taxonomyID, proteinName) => {
-  try {
-    const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE taxonomy_id = ? AND protein_name LIKE ?`;
-    const [rows] = await db.query(query, [taxonomyID, `%${proteinName}%`]);
-    return rows;
-  } catch (error) {
-    throw error; 
-  }
-};
-
-export const getProteinByName = async(proteinName) => {
-  try {
-    const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
-    const [rows] = await db.query(query, [`%${proteinName}%`]);
-    return rows;
-  } catch (error) {
-    throw error; 
-  }
-};
 
 
 
@@ -111,16 +65,16 @@ export const prepareData = (jsonData, proteinSequence) => {
 
   // Split data by experimentID
   const experiments = jsonData.reduce((acc, row) => {
-    if (!acc[row.lipexperiment_id]) {
-      acc[row.lipexperiment_id] = [];
+    if (!acc[row.dpx_comparison]) {
+      acc[row.dpx_comparison] = [];
     }
-    acc[row.lipexperiment_id].push(row);
+    acc[row.dpx_comparison].push(row);
     return acc;
   }, {});
 
   // Process each experiment's data
-  const processedData = Object.keys(experiments).reduce((acc, lipexperiment_id) => {
-    acc[lipexperiment_id] = processExperimentData(experiments[lipexperiment_id]);
+  const processedData = Object.keys(experiments).reduce((acc, dpx_comparison) => {
+    acc[dpx_comparison] = processExperimentData(experiments[dpx_comparison]);
     return acc;
   }, {});
 
@@ -128,15 +82,10 @@ export const prepareData = (jsonData, proteinSequence) => {
 }
 
 
-export const extractProteinDescription = (inputString) => {
-  const regex = /^[^\s]+\s+(.*?)\s+OS=/;
-  const match = inputString.match(regex);
-  return match ? match[1] : "Description not found";
-};
 
 export const getProteinFeatures = async(proteinName) => {
   try {
-    const fastaEntries = await getProteinByName(proteinName);
+    const fastaEntries = await getProteinDataByName(proteinName);
     if (fastaEntries.length === 0) {
       throw new Error("No protein found for the given taxonomy ID and protein name.");
     }
@@ -150,13 +99,13 @@ export const getProteinFeatures = async(proteinName) => {
     }
     const differentialAbundance = await getDifferentialAbundanceByAccession(pgProteinAccession);
     const {processedData} = prepareData(differentialAbundance, fastaEntry.seq);
-    const proteinDescription = extractProteinDescription(fastaEntry.protein_description);
+
   
     const result = {
       proteinName: pgProteinAccession,
       proteinSequence: fastaEntry.seq,
       differentialAbundanceData: processedData,
-      proteinDescription: proteinDescription
+      proteinDescription: fastaEntry.protein_description
     };
     
     return result;
