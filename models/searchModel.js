@@ -53,16 +53,17 @@ try {
 
 export const findProteinBySearchTerm = async (searchTerm) => {
     try {
-      const query = `
-         SELECT DISTINCT o.seq, o.protein_name, o.protein_description, o.taxonomy_id, o.gene_name 
-          FROM organism_proteome_entries o
-          JOIN differential_abundance d
-          ON o.protein_name = d.pg_protein_accessions
-          WHERE o.protein_name LIKE ? OR o.protein_description LIKE ? OR o.gene_name LIKE ?
-      `;
+      const searchTermWildcard = `%${searchTerm}%`;
 
-      const params = [`%${searchTerm}%`, `%${searchTerm}%`];
-      const [rows] = await db.query(query, params);
+      const [rows] = await db.query(
+        `SELECT DISTINCT o.seq, o.protein_name, o.protein_description, o.taxonomy_id, o.gene_name
+        FROM organism_proteome_entries o
+        JOIN differential_abundance d
+        ON o.protein_name = d.pg_protein_accessions
+        WHERE o.protein_name LIKE ? OR o.protein_description LIKE ? OR o.gene_name LIKE ?`,
+        [searchTermWildcard, searchTermWildcard, searchTermWildcard]
+      );
+
       return rows;
     } catch (error) {
       console.error("Error in findProteinBySearchTerm:", error);
