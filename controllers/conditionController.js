@@ -4,7 +4,7 @@ import {
     getExperimentsByCondition, 
     getProteinScoresForMultipleExperiments,
     getGoEnrichmentResultsByExperimentIDs,
-    getDoseResponseDatabyExperiments
+    getDoseResponseExperiments
 
 } from '../models/searchModel.js';
 
@@ -31,22 +31,21 @@ const categorizeDataByExperiment = (data) => {
 };
 
 
+
 const combineExperiments = (data) => {
     const combinedData = {};
 
     data.forEach(entry => {
         const { dpx_comparison: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore, protein_description: protein_description } = entry;
 
-        // Initialize the protein data structure if not already present
         if (!combinedData[proteinAccession]) {
             combinedData[proteinAccession] = {
                 totalScore: 0,
                 count: 0,
-                protein_description // Store the protein description
+                protein_description
             };
         }
 
-        // Aggregate cumulative scores
         combinedData[proteinAccession].totalScore += cumulativeScore;
         combinedData[proteinAccession].count += 1;
     });
@@ -126,6 +125,7 @@ export const returnconditionGroup = async(req, res) => {
     
     const experimentIDs = await getExperimentsByCondition(condition);
     const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
+    const dynaprotExperiments = [...new Set(experimentIDsList.map(e => e.split('-')[0]))];
 
     const [differentialAbundance, proteinScores, goEnrichmentData] = await Promise.all([
         getDifferentialAbundanceByExperimentIDs(experimentIDsList),
@@ -138,6 +138,8 @@ export const returnconditionGroup = async(req, res) => {
     const extractedGoTerms = extractGoTerms(goEnrichmentData);
     const proteinScoresTable = combineExperiments(proteinScores);
     const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);
+    const doseResponseExperiments = await getDoseResponseExperiments(dynaprotExperiments);
+    
 
     if (experimentIDsList) {
          res.json({
@@ -149,6 +151,7 @@ export const returnconditionGroup = async(req, res) => {
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: proteinScoresTable,
                 goEnrichmentData: filteredGoEnrichmentData,
+                doseResponseExperiments: doseResponseExperiments
              }
          });
      } else {

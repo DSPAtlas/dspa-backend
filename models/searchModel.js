@@ -50,6 +50,21 @@ try {
 }
 };
 
+export async function getDoseResponseExperiments(experimentIDsList) {
+  if (!Array.isArray(experimentIDsList) || experimentIDsList.length === 0) return [];
+
+  const placeholders = experimentIDsList.map(() => '?').join(',');
+  const query = `
+    SELECT DISTINCT dynaprot_experiment
+    FROM dose_response_plot_curve
+    WHERE dynaprot_experiment IN (${placeholders})
+  `;
+
+  const [rows] = await db.query(query, experimentIDsList);
+
+  return rows.map(row => row.dynaprot_experiment);
+}
+
 
 export const findProteinBySearchTerm = async (searchTerm) => {
     try {
