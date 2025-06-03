@@ -1,6 +1,4 @@
-import db from '../config/database.js';
-import fetch from 'node-fetch';
-import { median } from 'mathjs'; 
+
 import { getProteinDataByName } from './searchModel.js';
 import { getDifferentialAbundanceByAccession } from './searchModel.js';
 
