@@ -17,17 +17,15 @@ const querycondition = Joi.object({
 });
 
 const categorizeDataByExperiment = (data) => {
-    const categorized = data.reduce((acc, curr) => {
+    const map = new Map();
+    data.forEach(curr => {
         const experimentID = curr.dpx_comparison;
-        let experimentEntry = acc.find(entry => entry.experimentID === experimentID);
-        if (!experimentEntry) {
-            experimentEntry = { experimentID, data: [] };
-            acc.push(experimentEntry);
+        if (!map.has(experimentID)) {
+            map.set(experimentID, { experimentID, data: [] });
         }
-        experimentEntry.data.push(curr);
-        return acc;
-    }, []);
-    return categorized;
+        map.get(experimentID).data.push(curr);
+    });
+    return Array.from(map.values());
 };
 
 
@@ -78,7 +76,7 @@ export const returnConditions = async (req, res) => {
                 message: "No conditions found for the provided criteria."
             });
         }
-    } catch (error) {
+    } catch (error) { console.error("Error detected:", error);
         res.status(500).json({
             success: false,
             message: 'Server Error',
@@ -160,7 +158,7 @@ export const returnconditionGroup = async(req, res) => {
              message: "No results found for the provided criteria."
          });
      }
-     } catch (error) {
+     } catch (error) { console.error("Error detected:", error);
          res.status(500).json({ success: false, message: 'Server Error', error: error.message });
    }
  };

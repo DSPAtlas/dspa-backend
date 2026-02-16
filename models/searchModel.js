@@ -129,11 +129,16 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
   if (experimentIDs.length > 0) {  
     try {
       const placeholders = experimentIDs.map(() => '?').join(',');
+
+      // We also need two indices
+      // ALTER TABLE `differential_abundance` ADD INDEX `idx_pg_protein_accessions` (`pg_protein_accessions`);
+      // ALTER TABLE `organism_proteome_entries` ADD INDEX `idx_protein_name` (`protein_name`);
+
       const query = `
           SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
           FROM differential_abundance da
           JOIN organism_proteome_entries ope 
-          ON da.pg_protein_accessions = SUBSTRING_INDEX(SUBSTRING_INDEX(ope.protein_name, '|', 2), '|', -1)
+          ON da.pg_protein_accessions = ope.protein_name
           WHERE da.dpx_comparison IN (${placeholders}) AND da.adj_pval > 0
       `;
       const [rows] = await db.query(query, experimentIDs);
