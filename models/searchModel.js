@@ -288,7 +288,14 @@ export const getGoEnrichmentResultsByExperimentID = async (dynaprot_experiment) 
 
 
 export const getAllExperiments = async () => {
-  const query = 'SELECT * FROM dynaprot_experiment';
+  const query = `
+    SELECT
+      de.*,
+      o.organism_name AS organism
+    FROM dynaprot_experiment de
+    LEFT JOIN organism o
+      ON o.taxonomy_id = de.taxonomy_id
+  `;
   try {
       const [rows] = await db.query(query);
       return rows;
