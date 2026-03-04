@@ -4,7 +4,8 @@ import {
     getExperimentsByCondition, 
     getProteinScoresForMultipleExperiments,
     getGoEnrichmentResultsByExperimentIDs,
-    getDoseResponseExperiments
+    getDoseResponseExperiments,
+    getDistinctDoseByExperimentComparisonIDs
 
 } from '../models/searchModel.js';
 
@@ -133,6 +134,13 @@ export const returnconditionGroup = async(req, res) => {
   
 
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialAbundance);
+
+    // Enrich each comparison with a `dose` field for display (e.g., volcano plot title)
+    const doseRows = await getDistinctDoseByExperimentComparisonIDs(experimentIDsList);
+    const doseByComparisonID = new Map(doseRows.map(r => [r.dpx_comparison, r.dose]));
+    differentialAbundanceDataList.forEach(entry => {
+      entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
+    });
     const extractedGoTerms = extractGoTerms(goEnrichmentData);
     const proteinScoresTable = combineExperiments(proteinScores);
     const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);

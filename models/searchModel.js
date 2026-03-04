@@ -387,6 +387,36 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
   }
 };
 
+export const getDistinctDoseByExperimentComparisonIDs = async (experimentComparisonIDsList) => {
+  try {
+    if (!Array.isArray(experimentComparisonIDsList) || experimentComparisonIDsList.length === 0) {
+      return [];
+    }
+
+    const placeholders = experimentComparisonIDsList.map(() => '?').join(', ');
+
+    // Use an aggregate to guarantee a single row per comparison id even if the table
+    // accidentally contains duplicates.
+    // NOTE: `dose` is VARCHAR, so `MIN(dose)` picks the lexicographically smallest string
+    // (collation-dependent). We don't interpret it as a numeric minimum here; it's only a
+    // deterministic tie-breaker to collapse duplicates.
+    const [rows] = await db.query(
+      `
+        SELECT dpx_comparison, MIN(dose) AS dose
+        FROM dynaprot_experiment_comparison
+        WHERE dpx_comparison IN (${placeholders})
+        GROUP BY dpx_comparison
+      `,
+      experimentComparisonIDsList
+    );
+
+    return rows;
+  } catch (error) {
+    console.error('Error in getDistinctDoseByExperimentComparisonIDs:', error);
+    throw error;
+  }
+};
+
 export const fetchAllConditionData = async (condition) => {
   try {
     const [rows] = await db.query(`

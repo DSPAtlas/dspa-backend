@@ -2,7 +2,8 @@ import {
     getDifferentialAbundanceByDynaProtExperiment, 
     getDynaProtExperimentMetaData, 
     getGoEnrichmentResultsByDynaProtExperiment,
-    getSummarizedProteinScoreByDynaProtExperiment } from '../models/searchModel.js';
+    getSummarizedProteinScoreByDynaProtExperiment,
+    getDistinctDoseByExperimentComparisonIDs } from '../models/searchModel.js';
 import Joi from 'joi';
 
 
@@ -49,6 +50,14 @@ export const returnExperiment = async(req, res) => {
     const goenrichmentresults = await getGoEnrichmentResultsByDynaProtExperiment(experimentID);
 
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialabundance);
+
+    // Enrich each comparison with a `dose` field for display (e.g., volcano plot title)
+    const comparisonIDs = differentialAbundanceDataList.map(e => e.experimentID);
+    const doseRows = await getDistinctDoseByExperimentComparisonIDs(comparisonIDs);
+    const doseByComparisonID = new Map(doseRows.map(r => [r.dpx_comparison, r.dose]));
+    differentialAbundanceDataList.forEach(entry => {
+      entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
+    });
 
     if (metadata) {
         res.json({
