@@ -287,10 +287,15 @@ export const getGoEnrichmentResultsByExperimentID = async (dynaprot_experiment) 
 };
 
 
+// This query is for experiments overview page. There are much more columns in the table.
 export const getAllExperiments = async () => {
   const query = `
     SELECT
-      de.*,
+      de.dynaprot_experiment,
+      de.perturbation,
+      de.condition,
+      de.protease,
+      de.doi,
       o.organism_name AS organism
     FROM dynaprot_experiment de
     LEFT JOIN organism o
