@@ -421,7 +421,7 @@ export const fetchAllConditionData = async (condition) => {
   try {
     const [rows] = await db.query(`
         SELECT
-            le.dpx_compariosn,
+            le.dpx_comparison,
             le.condition,
             da.pg_protein_accessions,
             da.diff AS differential_abundance_value,
@@ -453,7 +453,7 @@ export const fetchAllConditionData = async (condition) => {
 
 
 
-export const getExperimentMetaData = async (dynaprot_experiment) => {
+export const getExperimentMetaData = async (experimentID) => {
   try {
     const [rows] = await db.query(`
         SELECT * FROM dynaprot_experiment_comparison
