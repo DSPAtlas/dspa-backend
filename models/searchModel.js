@@ -1,10 +1,170 @@
 
 import db from '../config/database.js';
+import fs from 'fs/promises';
+import path from 'path';
+import crypto from 'crypto';
+
+const UNIPROT_CACHE_DIR = process.env.UNIPROT_CACHE_DIR || path.resolve(process.cwd(), '.cache', 'dspatlas');
+const UNIPROT_CACHE_INDEX_FILE = path.join(UNIPROT_CACHE_DIR, 'index.json');
+const UNIPROT_CACHE_MAX_BYTES = Number(process.env.UNIPROT_CACHE_MAX_BYTES || (64 * 1024 * 1024));
+const UNIPROT_CACHE_TTL_MS = Number(process.env.UNIPROT_CACHE_TTL_MS || (30 * 24 * 60 * 60 * 1000));
+
+let cacheInitPromise = null;
+
+const createEmptyIndex = () => ({
+  totalBytes: 0,
+  entries: {}
+});
+
+const ensureCacheInitialized = async () => {
+  if (cacheInitPromise) {
+    return cacheInitPromise;
+  }
+
+  cacheInitPromise = (async () => {
+    await fs.mkdir(UNIPROT_CACHE_DIR, { recursive: true });
+    try {
+      await fs.access(UNIPROT_CACHE_INDEX_FILE);
+    } catch {
+      await fs.writeFile(UNIPROT_CACHE_INDEX_FILE, JSON.stringify(createEmptyIndex()));
+    }
+  })();
+
+  return cacheInitPromise;
+};
+
+const normalizeAccession = (accession) => String(accession || '').trim().toUpperCase();
+
+const getCacheEntryFilename = (key) => {
+  const hash = crypto.createHash('sha1').update(key).digest('hex');
+  return `${hash}.json`;
+};
+
+const readCacheIndex = async () => {
+  await ensureCacheInitialized();
+
+  try {
+    const raw = await fs.readFile(UNIPROT_CACHE_INDEX_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      totalBytes: Number(parsed.totalBytes) || 0,
+      entries: parsed.entries || {}
+    };
+  } catch {
+    return createEmptyIndex();
+  }
+};
+
+const writeCacheIndex = async (index) => {
+  await fs.writeFile(UNIPROT_CACHE_INDEX_FILE, JSON.stringify(index));
+};
+
+const evictLruEntries = async (index) => {
+  while (index.totalBytes > UNIPROT_CACHE_MAX_BYTES) {
+    const candidates = Object.entries(index.entries);
+    if (candidates.length === 0) {
+      break;
+    }
+
+    const [oldestKey, oldestMeta] = candidates.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)[0];
+
+    try {
+      await fs.unlink(path.join(UNIPROT_CACHE_DIR, oldestMeta.file));
+    } catch {
+      // Keep eviction resilient when file is missing.
+    }
+
+    index.totalBytes -= oldestMeta.size || 0;
+    delete index.entries[oldestKey];
+  }
+
+  if (index.totalBytes < 0) {
+    index.totalBytes = 0;
+  }
+};
+
+const getCachedUniprotResponse = async (cacheKey) => {
+  const index = await readCacheIndex();
+  const entryMeta = index.entries[cacheKey];
+
+  if (!entryMeta) {
+    return null;
+  }
+
+  const isExpired = (Date.now() - entryMeta.storedAt) > UNIPROT_CACHE_TTL_MS;
+
+  if (isExpired) {
+    try {
+      await fs.unlink(path.join(UNIPROT_CACHE_DIR, entryMeta.file));
+    } catch {
+      // Ignore missing files during cleanup.
+    }
+    index.totalBytes -= entryMeta.size || 0;
+    delete index.entries[cacheKey];
+    await writeCacheIndex(index);
+    return null;
+  }
+
+  try {
+    const raw = await fs.readFile(path.join(UNIPROT_CACHE_DIR, entryMeta.file), 'utf8');
+    entryMeta.lastAccessed = Date.now();
+    index.entries[cacheKey] = entryMeta;
+    await writeCacheIndex(index);
+    return JSON.parse(raw);
+  } catch {
+    index.totalBytes -= entryMeta.size || 0;
+    delete index.entries[cacheKey];
+    await writeCacheIndex(index);
+    return null;
+  }
+};
+
+const setCachedUniprotResponse = async (cacheKey, data) => {
+  const index = await readCacheIndex();
+  const serialized = JSON.stringify(data);
+  const size = Buffer.byteLength(serialized, 'utf8');
+  const file = getCacheEntryFilename(cacheKey);
+  const filePath = path.join(UNIPROT_CACHE_DIR, file);
+
+  const existing = index.entries[cacheKey];
+  if (existing) {
+    index.totalBytes -= existing.size || 0;
+  }
+
+  await fs.writeFile(filePath, serialized);
+
+  index.entries[cacheKey] = {
+    file,
+    size,
+    storedAt: Date.now(),
+    lastAccessed: Date.now()
+  };
+  index.totalBytes += size;
+
+  await evictLruEntries(index);
+  await writeCacheIndex(index);
+};
 
 export const getUniprotData = async (accession) => {
-  const url = `https://www.ebi.ac.uk/proteins/api/features/${accession}`;
+  const normalizedAccession = normalizeAccession(accession);
+  const cacheKey = `uniprot:${normalizedAccession}`;
+  const cached = await getCachedUniprotResponse(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const url = `https://www.ebi.ac.uk/proteins/api/features/${normalizedAccession}`;
   const response = await fetch(url);
-  return response.json();
+  const responseData = await response.json();
+
+  try {
+    await setCachedUniprotResponse(cacheKey, responseData);
+  } catch (error) {
+    console.warn('[searchModel] Failed to write UniProt cache entry:', error.message);
+  }
+
+  return responseData;
 };
 
 export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
@@ -157,7 +317,11 @@ export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_expe
   try {
     const query = `
       SELECT 
-        dac.*
+        dac.pg_protein_accessions,
+        dac.pep_grouping_key,
+        dac.diff,
+        dac.adj_pval,
+        dac.dpx_comparison
       FROM 
         dynaprot_experiment de
       JOIN 
@@ -466,10 +630,12 @@ export const getExperimentMetaData = async (experimentID) => {
 }
 };
 
-export const getDynaProtExperimentMetaData = async (dynaprot_experiment) => {
+export const getDynaProtExperimentMetaData = async (dynaprot_experiment, { includeQcPdf = false } = {}) => {
   try {
+    const qcPdfField = includeQcPdf ? ', qc_pdf_file' : '';
     const [rows] = await db.query(`
-        SELECT * FROM dynaprot_experiment
+        SELECT dynaprot_experiment, \`condition\`, taxonomy_id, strain, publication, instrument, experiment, approach, digestion_protocol, protease, pk_digestion_time_in_sec${qcPdfField}
+        FROM dynaprot_experiment
         WHERE dynaprot_experiment = ?
     `, [dynaprot_experiment]);
     return rows;
