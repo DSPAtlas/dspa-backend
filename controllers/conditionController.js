@@ -17,6 +17,18 @@ const querycondition = Joi.object({
     condition: Joi.string().trim().required()
 });
 
+const CONDITION_KEY_SEPARATOR = '|||';
+
+const parseConditionSelection = (conditionSelection) => {
+    const [condition, taxonomyIdValue] = conditionSelection.split(CONDITION_KEY_SEPARATOR);
+    const taxonomyId = taxonomyIdValue ? Number(taxonomyIdValue) : null;
+
+    return {
+        condition,
+        taxonomyId: Number.isFinite(taxonomyId) ? taxonomyId : null
+    };
+};
+
 const categorizeDataByExperiment = (data) => {
     const map = new Map();
     data.forEach(curr => {
@@ -69,7 +81,13 @@ export const returnConditions = async (req, res) => {
         if (conditions && conditions.length > 0) {
             res.json({
                 success: true,
-                conditions: conditions.map(c => c.condition),
+                conditions: conditions.map(c => ({
+                    value: `${c.condition}${CONDITION_KEY_SEPARATOR}${c.taxonomy_id}`,
+                    label: `${c.condition} — ${c.organism_name || `Taxonomy ${c.taxonomy_id}`}`,
+                    condition: c.condition,
+                    taxonomyId: c.taxonomy_id,
+                    organism: c.organism_name || null
+                })),
             });
         } else {
             res.status(404).json({
@@ -98,6 +116,7 @@ export const returnconditionGroup = async(req, res) => {
         }
     
     const { condition } = value;
+    const parsedCondition = parseConditionSelection(condition);
 
     const extractGoTerms = (data) => {
         const goTermsMap = new Map();
@@ -122,7 +141,7 @@ export const returnconditionGroup = async(req, res) => {
         }));
     };
     
-    const experimentIDs = await getExperimentsByCondition(condition);
+    const experimentIDs = await getExperimentsByCondition(parsedCondition);
     const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
     const dynaprotExperiments = [...new Set(experimentIDsList.map(e => e.split('-')[0]))];
 
@@ -151,7 +170,8 @@ export const returnconditionGroup = async(req, res) => {
          res.json({
              success: true,
              conditionData: {
-                condition: condition, 
+                condition: parsedCondition.condition,
+                taxonomyId: parsedCondition.taxonomyId,
                 goTerms:  extractedGoTerms,
                 experimentIDsList: experimentIDsList, 
                 differentialAbundanceDataList: differentialAbundanceDataList,

@@ -477,14 +477,19 @@ export const getAllExperiments = async () => {
 
 export const getExperimentsByCondition = async (condition) => {
   try {
-    const [rows] = await db.query(
-      `
+    let query = `
       SELECT dpx_comparison
       FROM dynaprot_experiment_comparison
       WHERE \`condition\` = ?
-      `,
-      [condition]
-    );
+    `;
+    const params = [condition.condition];
+
+    if (condition.taxonomyId !== null && condition.taxonomyId !== undefined) {
+      query += ` AND taxonomy_id = ?`;
+      params.push(condition.taxonomyId);
+    }
+
+    const [rows] = await db.query(query, params);
     return rows;
   } catch (error) {
     console.error('Error fetching all experiments:', error.message);
@@ -510,7 +515,14 @@ export const getAssociatedExperimentIDs = async (groupID) => {
 export const getConditions = async () => {
   try {
       const [rows] = await db.query(`
-          SELECT DISTINCT \`condition\` FROM dynaprot_experiment_comparison WHERE \`condition\` IS NOT NULL
+          SELECT DISTINCT
+              comparison.\`condition\`,
+              comparison.taxonomy_id,
+              o.organism_name
+          FROM dynaprot_experiment_comparison comparison
+          LEFT JOIN organism o ON o.taxonomy_id = comparison.taxonomy_id
+          WHERE comparison.\`condition\` IS NOT NULL
+          ORDER BY comparison.\`condition\`, comparison.taxonomy_id
       `);
       return rows;
   } catch (error) {
