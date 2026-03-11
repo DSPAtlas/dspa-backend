@@ -679,6 +679,34 @@ export const getSummarizedProteinScoreByDynaProtExperiment = async (dynaprot_exp
   }
 };
 
+export const getTopChangingPeptidesByDynaProtExperiment = async (dynaprot_experiment) => {
+  try {
+    const query = `
+      SELECT
+        da.pg_protein_accessions,
+        da.pep_grouping_key AS peptide_key,
+        da.diff,
+        da.adj_pval,
+        da.dpx_comparison
+      FROM dynaprot_experiment de
+      JOIN dynaprot_experiment_comparison \`dec\`
+        ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
+      JOIN differential_abundance da
+        ON \`dec\`.dpx_comparison = da.dpx_comparison
+      WHERE de.dynaprot_experiment = ?
+        AND da.adj_pval < 0.05
+        AND ABS(da.diff) > 1
+      ORDER BY ABS(da.diff) DESC
+      LIMIT 20
+    `;
+    const [rows] = await db.query(query, [dynaprot_experiment]);
+    return rows;
+  } catch (error) {
+    console.error('Error in getTopChangingPeptidesByDynaProtExperiment:', error);
+    throw error;
+  }
+};
+
 
 
 
