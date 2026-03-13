@@ -1,6 +1,7 @@
 
 import { getProteinDataByName } from './searchModel.js';
 import { getDifferentialAbundanceByAccession } from './searchModel.js';
+import { extractProteinAccession } from './searchModel.js';
 
 
 
