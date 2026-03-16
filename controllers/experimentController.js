@@ -46,11 +46,19 @@ export const returnExperiment = async(req, res) => {
 
     const offset = (page - 1) * limit;
     
-    const metadata = await  getDynaProtExperimentMetaData(experimentID, { includeQcPdf });
-    const differentialabundance = await getDifferentialAbundanceByDynaProtExperiment(experimentID);
-    const proteinScores = await getSummarizedProteinScoreByDynaProtExperiment(experimentID);
-    const topChangingPeptides = await getTopChangingPeptidesByDynaProtExperiment(experimentID);
-    const goenrichmentresults = await getGoEnrichmentResultsByDynaProtExperiment(experimentID);
+    const [
+        metadata,
+        differentialabundance,
+        proteinScores,
+        topChangingPeptides,
+        goenrichmentresults
+    ] = await Promise.all([
+        getDynaProtExperimentMetaData(experimentID, { includeQcPdf }),
+        getDifferentialAbundanceByDynaProtExperiment(experimentID),
+        getSummarizedProteinScoreByDynaProtExperiment(experimentID),
+        getTopChangingPeptidesByDynaProtExperiment(experimentID),
+        getGoEnrichmentResultsByDynaProtExperiment(experimentID)
+    ]);
 
     const differentialAbundanceDataList = categorizeDataByExperiment(differentialabundance);
 
