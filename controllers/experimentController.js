@@ -11,7 +11,8 @@ import Joi from 'joi';
 const querySchemaExperiments = Joi.object({
     experimentID: Joi.string().required(),
     page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(100).default(10)
+    limit: Joi.number().integer().min(1).max(100).default(10),
+    includeQcPdf: Joi.boolean().default(false)
 });
 
 const categorizeDataByExperiment = (data) => {
@@ -41,11 +42,11 @@ export const returnExperiment = async(req, res) => {
         });
         }
     
-    const { experimentID, page, limit } = value;
+    const { experimentID, page, limit, includeQcPdf } = value;
 
     const offset = (page - 1) * limit;
     
-    const metadata = await  getDynaProtExperimentMetaData(experimentID);
+    const metadata = await  getDynaProtExperimentMetaData(experimentID, { includeQcPdf });
     const differentialabundance = await getDifferentialAbundanceByDynaProtExperiment(experimentID);
     const proteinScores = await getSummarizedProteinScoreByDynaProtExperiment(experimentID);
     const topChangingPeptides = await getTopChangingPeptidesByDynaProtExperiment(experimentID);
