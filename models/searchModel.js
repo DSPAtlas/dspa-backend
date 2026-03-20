@@ -331,7 +331,8 @@ export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_expe
         differential_abundance dac 
           ON \`dec\`.dpx_comparison = dac.dpx_comparison
       WHERE 
-        de.dynaprot_experiment = ?;
+        de.dynaprot_experiment = ?
+        AND dac.adj_pval > 0;
     `;
     const [rows] = await db.query(query, [dynaprot_experiment]);
     return rows;
