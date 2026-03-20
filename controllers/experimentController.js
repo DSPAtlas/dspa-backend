@@ -64,21 +64,33 @@ export const returnExperiment = async(req, res) => {
 
     // Enrich each comparison with a `dose` field for display (e.g., volcano plot title)
     const comparisonIDs = differentialAbundanceDataList.map(e => e.experimentID);
-    const doseRows = await getDistinctDoseByExperimentComparisonIDs(comparisonIDs);
+    
+    // Also include comparison IDs from topChangingPeptides if not already there
+    const topPeptideComparisonIDs = [...new Set(topChangingPeptides.map(p => p.dpx_comparison))];
+    const allComparisonIDs = [...new Set([...comparisonIDs, ...topPeptideComparisonIDs])];
+
+    const doseRows = await getDistinctDoseByExperimentComparisonIDs(allComparisonIDs);
     const doseByComparisonID = new Map(doseRows.map(r => [r.dpx_comparison, r.dose]));
+
     differentialAbundanceDataList.forEach(entry => {
       entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
     });
+
+    // Enrich topChangingPeptides with dose/comparison title
+    const enrichedTopPeptides = topChangingPeptides.map(p => ({
+        ...p,
+        comparison: doseByComparisonID.get(p.dpx_comparison) ?? p.dpx_comparison
+    }));
 
     if (metadata) {
         res.json({
             success: true,
             experimentData: {
-                experimentID: experimentID, 
+                experimentID: experimentID,
                 metaData: metadata[0],
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScores: proteinScores,
-                topChangingPeptides: topChangingPeptides,
+                topChangingPeptides: enrichedTopPeptides,
                 goEnrichmentData: goenrichmentresults,
                 page,
                 limit
