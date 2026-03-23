@@ -6,6 +6,85 @@ import { extractProteinAccession } from './searchModel.js';
 
 
 
+/**
+ * Processes experimental data for a single experiment to calculate scores and significance vectors.
+ * 
+ * This function is called from `prepareData` to process each grouped experiment (dpx_comparison)
+ * 
+ * @param {Array<{pos_start: number, pos_end: number, diff: number, adj_pval: number}>} data - Array of experimental data rows.
+ *   - `pos_start`: The starting position of the peptide in the protein sequence.
+ *   - `pos_end`: The ending position of the peptide.
+ *   - `diff`: The differential abundance log2 fold change.
+ *   - `adj_pval`: The adjusted p-value (q-value) for significance.
+ * @param {string} proteinSequence - The full amino acid sequence of the protein.
+ * 
+ * @returns {Array<{index: number, sig: number|null, aminoacid: string, detected: number|null, score: number}>} 
+ *          An array of processed data points representing each position in the sequence up to maxIndex.
+ *          Each element is an object with the following fields:
+ *          - `index`: The zero-based position in the protein sequence.
+ *          - `sig`: The significance value based on log2 fold change if thresholds are met
+ *          - `aminoacid`: The single-letter amino acid code at this position.
+ *          - `detected`: 1 if the position was covered by a peptide but did not meet significance thresholds, otherwise null.
+ *          - `score`: Currently the averaged diff at this position
+ */
+export function processExperimentData(data, proteinSequence) {
+  if (!data || data.length === 0) return [];
+
+  const maxIndex = Math.max(...data.map(row => Math.round(row.pos_end)));
+  
+  // 1. Define arrays for sums and counts
+  const sums = new Array(maxIndex + 1).fill(0);
+  const counts = new Array(maxIndex + 1).fill(0);
+
+  // 2. Accumulate sums and counts
+  data.forEach(row => {
+    // If we ever get fractional indices, it will work wrongly and will not signal the error
+    // Rounding for peace of mind. We mostly expect integer indices.
+    const start = Math.round(row.pos_start);
+    const end = Math.round(row.pos_end);
+
+    // Diff can be negative but for averaging still looks fine.
+    const diff = !isFinite(row.diff) ? 0 : row.diff;
+
+    for (let i = start; i < end; i++) {
+      if (i < sums.length) {
+        sums[i] += diff;
+        counts[i] += 1;
+      }
+    }
+  });
+
+  // 3. Calculate averages where we have observed the values, null otherwise
+  const averages = sums.map((sum, i) => counts[i] > 0 ? sum / counts[i] : null);
+
+  // 4. Find min and max for normalization (ignoring nulls where count was 0)
+  const validAverages = averages.filter(avg => avg !== null);
+  const min = validAverages.length > 0 ? Math.min(...validAverages) : 0;
+  const max = validAverages.length > 0 ? Math.max(...validAverages) : 0;
+
+  // We cannot normalize with all values equal. Returning 0.5. Same if we do not have any valid values.
+  const isDegenerate = min === max;
+
+  // 5. Build the final array with normalized scores, setting sig and detected to 1
+  return averages.map((avg, index) => {
+    let normalizedScore = 0.5;
+    
+    if (avg !== null && !isDegenerate) {
+      normalizedScore = (avg - min) / (max - min);
+    }
+
+    const isCovered = counts[index] > 0;
+
+    return {
+      index,
+      sig: isCovered ? 1 : null,
+      aminoacid: proteinSequence[index] || '',
+      detected: isCovered ? 1 : null,
+      score: normalizedScore
+    };
+  });
+}
+
 export const prepareData = (jsonData, proteinSequence) => {
   /**
    * Prepare data for barcode visualization
@@ -24,44 +103,6 @@ export const prepareData = (jsonData, proteinSequence) => {
    */
 
 
-  // Helper function to process data for a single experiment
-  function processExperimentData(data) {
-    const maxIndex = Math.max(...data.map(row => Math.round(row.pos_end)));
-    const len_vector = new Array(maxIndex + 1).fill(0); // +1 because arrays are 0-indexed
-    const len_vector_detected = new Array(maxIndex + 1).fill(0);
-    const scores = new Array(maxIndex + 1).fill(null);
-
-    const qvalue_cutoff = 0.05;
-    const log2FC_cutoff = 0.2;
-
-    data.forEach(row => {
-      const start = Math.round(row.pos_start);
-      const end = Math.round(row.pos_end);
-      const log2FC = !isFinite(row.diff) ? 0 : row.diff;
-      const qvalue = row.adj_pval;
-      const score = -Math.log10(qvalue) + Math.abs(log2FC);
-
-      for (let i = start; i < end; i++) {
-        if (i < len_vector.length) {
-          scores[i] = score;
-          if (qvalue < qvalue_cutoff && Math.abs(log2FC) > log2FC_cutoff) {
-            len_vector[i] = len_vector[i] !== 0 ? (len_vector[i] + log2FC) / 2 : log2FC;
-          } else {
-            len_vector_detected[i] = 1;
-          }
-        }
-      }
-    });
-
-    return len_vector.map((sig, index) => ({
-      index,
-      sig: isNaN(sig) ? null : sig,
-      aminoacid: proteinSequence[index] || '',
-      detected: len_vector_detected[index] || null,
-      score: scores[index]
-    }));
-  }
-
   // Split data by experimentID
   const experiments = jsonData.reduce((acc, row) => {
     if (!acc[row.dpx_comparison]) {
@@ -73,7 +114,7 @@ export const prepareData = (jsonData, proteinSequence) => {
 
   // Process each experiment's data
   const processedData = Object.keys(experiments).reduce((acc, dpx_comparison) => {
-    acc[dpx_comparison] = processExperimentData(experiments[dpx_comparison]);
+    acc[dpx_comparison] = processExperimentData(experiments[dpx_comparison], proteinSequence);
     return acc;
   }, {});
 
