@@ -49,7 +49,7 @@ test('processExperimentData processes overlapping fragments correctly', () => {
   assert.strictEqual(result[4].aminoacid, '');
   assert.strictEqual(result[4].sig, null);
   assert.strictEqual(result[4].detected, null);
-  assert.strictEqual(result[4].score, 0.5); // Default score for avg === null
+  assert.strictEqual(result[4].score, 1.0); // Default score for avg === null
 });
 
 test('processExperimentData handles uncovered positions and degenerate cases', () => {
@@ -60,18 +60,18 @@ test('processExperimentData handles uncovered positions and degenerate cases', (
 
   const result = processExperimentData(data, sequence);
 
-  // Index 0: uncovered -> score 0.5, sig/detected null
+  // Index 0: uncovered -> score 1.0, sig/detected null
   assert.strictEqual(result[0].sig, null);
   assert.strictEqual(result[0].detected, null);
-  assert.strictEqual(result[0].score, 0.5);
+  assert.strictEqual(result[0].score, 1.0);
 
-  // Index 1: degenerate (min=max=2) -> score 0.5
+  // Index 1: degenerate (min=max=2) -> score 1.0
   assert.strictEqual(result[1].sig, 1);
   assert.strictEqual(result[1].detected, 1);
-  assert.strictEqual(result[1].score, 0.5);
+  assert.strictEqual(result[1].score, 1.0);
 
-  // Index 2: degenerate -> score 0.5
+  // Index 2: degenerate -> score 1.0
   assert.strictEqual(result[2].sig, 1);
   assert.strictEqual(result[2].detected, 1);
-  assert.strictEqual(result[2].score, 0.5);
+  assert.strictEqual(result[2].score, 1.0);
 });

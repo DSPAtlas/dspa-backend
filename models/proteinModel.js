@@ -42,12 +42,13 @@ export function processExperimentData(data, proteinSequence) {
     const start = Math.round(row.pos_start);
     const end = Math.round(row.pos_end);
 
-    // Diff can be negative but for averaging still looks fine.
-    const diff = !isFinite(row.diff) ? 0 : row.diff;
+    const log2FC = !isFinite(row.diff) ? 0 : row.diff;
+    const qvalue = row.adj_pval;
+    const score = -Math.log10(qvalue) + Math.abs(log2FC);
 
     for (let i = start; i < end; i++) {
       if (i < sums.length) {
-        sums[i] += diff;
+        sums[i] += score;
         counts[i] += 1;
       }
     }
@@ -66,7 +67,7 @@ export function processExperimentData(data, proteinSequence) {
 
   // 5. Build the final array with normalized scores, setting sig and detected to 1
   return averages.map((avg, index) => {
-    let normalizedScore = 0.5;
+    let normalizedScore = 1.0; // as per protti/R calculate_aa_scores.R
     
     if (avg !== null && !isDegenerate) {
       normalizedScore = (avg - min) / (max - min);
