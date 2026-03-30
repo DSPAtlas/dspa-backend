@@ -2,8 +2,7 @@ import {
     getDifferentialAbundanceByDynaProtExperiment, 
     getDynaProtExperimentMetaData, 
     getGoEnrichmentResultsByDynaProtExperiment,
-    getSummarizedProteinScoreByDynaProtExperiment,
-    getTopChangingPeptidesByDynaProtExperiment,
+    getSignificantProteinsByDynaProtExperiment,
     getDistinctDoseByExperimentComparisonIDs } from '../models/searchModel.js';
 import Joi from 'joi';
 
@@ -31,6 +30,7 @@ const categorizeDataByExperiment = (data) => {
 
 
 export const returnExperiment = async(req, res) => {
+    const requestStart = process.hrtime.bigint();
 
     try {
         const { value, error } = querySchemaExperiments.validate(req.query);
@@ -49,14 +49,12 @@ export const returnExperiment = async(req, res) => {
     const [
         metadata,
         differentialabundance,
-        proteinScores,
-        topChangingPeptides,
+        significantProteins,
         goenrichmentresults
     ] = await Promise.all([
         getDynaProtExperimentMetaData(experimentID, { includeQcPdf }),
         getDifferentialAbundanceByDynaProtExperiment(experimentID),
-        getSummarizedProteinScoreByDynaProtExperiment(experimentID),
-        getTopChangingPeptidesByDynaProtExperiment(experimentID),
+        getSignificantProteinsByDynaProtExperiment(experimentID),
         getGoEnrichmentResultsByDynaProtExperiment(experimentID)
     ]);
 
@@ -65,32 +63,40 @@ export const returnExperiment = async(req, res) => {
     // Enrich each comparison with a `dose` field for display (e.g., volcano plot title)
     const comparisonIDs = differentialAbundanceDataList.map(e => e.experimentID);
     
-    // Also include comparison IDs from topChangingPeptides if not already there
-    const topPeptideComparisonIDs = [...new Set(topChangingPeptides.map(p => p.dpx_comparison))];
-    const allComparisonIDs = [...new Set([...comparisonIDs, ...topPeptideComparisonIDs])];
+    const proteinComparisonIDs = [...new Set(significantProteins.map(protein => protein.dpx_comparison).filter(Boolean))];
+    const allComparisonIDs = [...new Set([...comparisonIDs, ...proteinComparisonIDs])];
 
     const doseRows = await getDistinctDoseByExperimentComparisonIDs(allComparisonIDs);
-    const doseByComparisonID = new Map(doseRows.map(r => [r.dpx_comparison, r.dose]));
+    const comparisonLabelByComparisonID = new Map(
+        doseRows.map((row) => [
+            row.dpx_comparison,
+            row.comparison_label ?? row.dose ?? row.dpx_comparison
+        ])
+    );
 
     differentialAbundanceDataList.forEach(entry => {
-      entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
+      entry.dose = comparisonLabelByComparisonID.get(entry.experimentID) ?? entry.experimentID;
     });
 
-    // Enrich topChangingPeptides with dose/comparison title
-    const enrichedTopPeptides = topChangingPeptides.map(p => ({
-        ...p,
-        comparison: doseByComparisonID.get(p.dpx_comparison) ?? p.dpx_comparison
+    const enrichedSignificantProteins = significantProteins.map((protein) => ({
+        ...protein,
+        comparison: comparisonLabelByComparisonID.get(protein.dpx_comparison) ?? protein.dpx_comparison
     }));
 
     if (metadata) {
+        const requestDurationMs = Number(process.hrtime.bigint() - requestStart) / 1e6;
+        console.info(
+            `[Performance] Experiment endpoint ${experimentID} processed in ${requestDurationMs.toFixed(2)} ms`
+        );
+
         res.json({
             success: true,
             experimentData: {
                 experimentID: experimentID,
                 metaData: metadata[0],
                 differentialAbundanceDataList: differentialAbundanceDataList,
-                proteinScores: proteinScores,
-                topChangingPeptides: enrichedTopPeptides,
+                proteinScores: enrichedSignificantProteins,
+                significantProteins: enrichedSignificantProteins,
                 goEnrichmentData: goenrichmentresults,
                 page,
                 limit

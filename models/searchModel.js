@@ -579,7 +579,13 @@ export const getDistinctDoseByExperimentComparisonIDs = async (experimentCompari
     // deterministic tie-breaker to collapse duplicates.
     const [rows] = await db.query(
       `
-        SELECT dpx_comparison, MIN(dose) AS dose
+        SELECT
+          dpx_comparison,
+          MIN(NULLIF(TRIM(dose), '')) AS dose,
+          COALESCE(
+            MIN(NULLIF(TRIM(dose), '')),
+            dpx_comparison
+          ) AS comparison_label
         FROM dynaprot_experiment_comparison
         WHERE dpx_comparison IN (${placeholders})
         GROUP BY dpx_comparison
@@ -688,6 +694,85 @@ export const getSummarizedProteinScoreByDynaProtExperiment = async (dynaprot_exp
     return rows;
   } catch (error) {
     console.error('Error in getSummarizedProteinScoreByDynaProtExperiment:', error);
+    throw error;
+  }
+};
+
+export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experiment) => {
+  const aggregationStart = process.hrtime.bigint();
+
+  try {
+    const query = `
+      SELECT
+        da.dpx_comparison,
+        da.pg_protein_accessions,
+        da.diff,
+        da.adj_pval,
+        ope.protein_description
+      FROM dynaprot_experiment de
+      JOIN dynaprot_experiment_comparison \`dec\`
+        ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
+      JOIN differential_abundance da
+        ON \`dec\`.dpx_comparison = da.dpx_comparison
+      LEFT JOIN organism_proteome_entries ope
+        ON da.pg_protein_accessions = ope.protein_name
+        AND \`dec\`.taxonomy_id = ope.taxonomy_id
+      WHERE de.dynaprot_experiment = ?
+        AND da.adj_pval < 0.05
+        AND ABS(da.diff) > 1
+      ORDER BY ABS(da.diff) DESC
+    `;
+
+    const queryStart = process.hrtime.bigint();
+    const [rows] = await db.query(query, [dynaprot_experiment]);
+    const queryTimeMs = Number(process.hrtime.bigint() - queryStart) / 1e6;
+
+    const processingStart = process.hrtime.bigint();
+    const proteinMap = new Map();
+
+    rows.forEach((row) => {
+      const proteinAccession = row.pg_protein_accessions;
+
+      if (!proteinAccession) {
+        return;
+      }
+
+      const existingProtein = proteinMap.get(proteinAccession);
+
+      if (!existingProtein) {
+        proteinMap.set(proteinAccession, {
+          proteinAccession,
+          pg_protein_accessions: proteinAccession,
+          diff: row.diff,
+          maxLog2FC: row.diff,
+          n_peptides: 1,
+          protein_description: row.protein_description || null,
+          dpx_comparison: row.dpx_comparison,
+          adj_pval: row.adj_pval
+        });
+        return;
+      }
+
+      existingProtein.n_peptides += 1;
+
+      if (!existingProtein.protein_description && row.protein_description) {
+        existingProtein.protein_description = row.protein_description;
+      }
+    });
+
+    const aggregatedProteins = Array.from(proteinMap.values()).sort(
+      (left, right) => Math.abs(right.maxLog2FC) - Math.abs(left.maxLog2FC)
+    );
+
+    const postProcessingTimeMs = Number(process.hrtime.bigint() - processingStart) / 1e6;
+    const totalTimeMs = Number(process.hrtime.bigint() - aggregationStart) / 1e6;
+    console.info(
+      `[Performance] Significant protein aggregation for ${dynaprot_experiment}: database query ${queryTimeMs.toFixed(2)} ms, post processing ${postProcessingTimeMs.toFixed(2)} ms, total ${totalTimeMs.toFixed(2)} ms (${rows.length} significant peptides -> ${aggregatedProteins.length} proteins)`
+    );
+
+    return aggregatedProteins;
+  } catch (error) {
+    console.error('Error in getSignificantProteinsByDynaProtExperiment:', error);
     throw error;
   }
 };
