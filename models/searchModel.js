@@ -170,7 +170,8 @@ export const getUniprotData = async (accession) => {
 export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
 try {
     const [rows] = await db.query(`
-        SELECT * FROM differential_abundance
+        SELECT dpx_comparison, pg_protein_accessions, pos_start, pos_end, diff, adj_pval
+        FROM differential_abundance
         WHERE pg_protein_accessions = ?
         ORDER BY pos_start
     `, [pgProteinAccessions]);
@@ -500,7 +501,8 @@ export const getExperimentsByCondition = async (condition) => {
 export const getAssociatedExperimentIDs = async (groupID) => {
   try {
       const [rows] = await db.query(`
-          SELECT * FROM dynaprot_experiment_comparison
+          SELECT dpx_comparison, taxonomy_id, condition, dose, dynaprot_experiment
+          FROM dynaprot_experiment_comparison
           WHERE dynaprot_experiment = ?
       `, [groupID]);
       return rows;
@@ -535,7 +537,8 @@ export const getConditions = async () => {
 export const getDifferentialAbundanceByAccessionGroup = async (pgProteinAccessions, groupID) => {
   try {
       const [rows] = await db.query(`
-          SELECT * FROM differential_abundance
+          SELECT dpx_comparison, pg_protein_accessions, pos_start, pos_end, diff, adj_pval
+          FROM differential_abundance
           WHERE pg_protein_accessions = ?
           AND dpx_comparison = ?
           ORDER BY pos_start
@@ -553,7 +556,8 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
     const placeholders = experimentIDsList.map(() => '?').join(', ');
 
     const [rows] = await db.query(`
-        SELECT * FROM dynaprot_experiment_comparison
+        SELECT dpx_comparison, taxonomy_id, condition, dose, dynaprot_experiment
+        FROM dynaprot_experiment_comparison
         WHERE dpx_comparison IN (${placeholders})
     `, experimentIDsList);
 
@@ -639,7 +643,8 @@ export const fetchAllConditionData = async (condition) => {
 export const getExperimentMetaData = async (experimentID) => {
   try {
     const [rows] = await db.query(`
-        SELECT * FROM dynaprot_experiment_comparison
+        SELECT dpx_comparison, taxonomy_id, condition, dose, dynaprot_experiment
+        FROM dynaprot_experiment_comparison
         WHERE dpx_comparison = ?
     `, [experimentID]);
     return rows;
@@ -811,7 +816,8 @@ export const getTopChangingPeptidesByDynaProtExperiment = async (dynaprot_experi
 export const getProteinScoreforSingleExperiment = async (experimentID) => {
   try {
     const [rows] = await db.query(`
-        SELECT * FROM protein_scores
+        SELECT pg_protein_accessions, protein_description, cumulativeScore, dpx_comparison
+        FROM protein_scores
         WHERE dpx_comparison = ?
     `, [experimentID]);
     return rows;
@@ -859,7 +865,9 @@ export const getDoseResponseDatabyExperiments = async (experimentIDs, proteinAcc
     const placeholders = dynaprot_experiments.map(() => '?').join(',');
 
     const query = `
-       SELECT * 
+       SELECT dynaprot_experiment, pg_protein_accessions, pep_grouping_key, rank, hill_coefficient,
+              min_model, max_model, ec_50, correlation, pval, enough_conditions, dose_MNAR,
+              anova_pval, anova_adj_pval, passed_filter, score
        FROM dose_response_fit
        WHERE dynaprot_experiment IN (${placeholders}) AND pg_protein_accessions = ?
     `;
