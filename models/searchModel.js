@@ -234,9 +234,12 @@ export const findProteinBySearchTerm = async (searchTerm) => {
       const [rows] = await db.query(
         `SELECT DISTINCT o.seq, o.protein_name, o.protein_description, o.taxonomy_id, o.gene_name
         FROM organism_proteome_entries o
-        JOIN differential_abundance d
-        ON o.protein_name = d.pg_protein_accessions
-        WHERE o.protein_name LIKE ? OR o.protein_description LIKE ? OR o.gene_name LIKE ?`,
+        WHERE (o.protein_name LIKE ? OR o.protein_description LIKE ? OR o.gene_name LIKE ?)
+          AND EXISTS (
+            SELECT 1
+            FROM differential_abundance d
+            WHERE d.pg_protein_accessions = o.protein_name
+          )`,
         [searchTermWildcard, searchTermWildcard, searchTermWildcard]
       );
 
@@ -274,8 +277,6 @@ export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
     const query = `
         SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval
         FROM differential_abundance da
-        JOIN organism_proteome_entries ope 
-        ON da.pg_protein_accessions = ope.protein_name
         WHERE da.dpx_comparison = ? AND da.adj_pval > 0
     `;
     const [rows] = await db.query(query, [experimentID]);
@@ -291,15 +292,9 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
     try {
       const placeholders = experimentIDs.map(() => '?').join(',');
 
-      // We also need two indices
-      // ALTER TABLE `differential_abundance` ADD INDEX `idx_pg_protein_accessions` (`pg_protein_accessions`);
-      // ALTER TABLE `organism_proteome_entries` ADD INDEX `idx_protein_name` (`protein_name`);
-
       const query = `
           SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
           FROM differential_abundance da
-          JOIN organism_proteome_entries ope 
-          ON da.pg_protein_accessions = ope.protein_name
           WHERE da.dpx_comparison IN (${placeholders}) AND da.adj_pval > 0
       `;
       const [rows] = await db.query(query, experimentIDs);
@@ -501,7 +496,7 @@ export const getExperimentsByCondition = async (condition) => {
 export const getAssociatedExperimentIDs = async (groupID) => {
   try {
       const [rows] = await db.query(`
-          SELECT dpx_comparison, taxonomy_id, condition, dose, dynaprot_experiment
+          SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
           FROM dynaprot_experiment_comparison
           WHERE dynaprot_experiment = ?
       `, [groupID]);
@@ -556,7 +551,7 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
     const placeholders = experimentIDsList.map(() => '?').join(', ');
 
     const [rows] = await db.query(`
-        SELECT dpx_comparison, taxonomy_id, condition, dose, dynaprot_experiment
+        SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
         FROM dynaprot_experiment_comparison
         WHERE dpx_comparison IN (${placeholders})
     `, experimentIDsList);
@@ -615,20 +610,25 @@ export const fetchAllConditionData = async (condition) => {
             da.pos_start,
             da.adj_pval AS differential_abundance_score,
             ps.cumulativeScore AS protein_score,
-            GROUP_CONCAT(DISTINCT ge.go_id SEPARATOR ', ') AS go_ids,
-            GROUP_CONCAT(DISTINCT ge.term SEPARATOR ', ') AS go_terms
+            go.go_ids,
+            go.go_terms
         FROM
             dynaprot_experiment_comparison le
         JOIN
             differential_abundance da ON le.dpx_comparison = da.dpx_comparison
         LEFT JOIN
-            go_analysis ge ON le.dpx_comparison = ge.dpx_comparison
+            (
+                SELECT
+                    dpx_comparison,
+                    GROUP_CONCAT(DISTINCT go_id SEPARATOR ', ') AS go_ids,
+                    GROUP_CONCAT(DISTINCT term SEPARATOR ', ') AS go_terms
+                FROM go_analysis
+                GROUP BY dpx_comparison
+            ) go ON le.dpx_comparison = go.dpx_comparison
         LEFT JOIN
             protein_scores ps ON da.pg_protein_accessions = ps.pg_protein_accessions AND le.dpx_comparison = ps.dpx_comparison
         WHERE
             le.condition = ?
-        GROUP BY
-            le.dpx_comparison, le.condition, da.pg_protein_accessions, da.diff, da.pos_start, da.adj_pval, ps.cumulativeScore
     `, [condition]);
     return rows;
   } catch (error) {
@@ -643,7 +643,7 @@ export const fetchAllConditionData = async (condition) => {
 export const getExperimentMetaData = async (experimentID) => {
   try {
     const [rows] = await db.query(`
-        SELECT dpx_comparison, taxonomy_id, condition, dose, dynaprot_experiment
+        SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
         FROM dynaprot_experiment_comparison
         WHERE dpx_comparison = ?
     `, [experimentID]);
@@ -724,7 +724,7 @@ export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experi
         AND \`dec\`.taxonomy_id = ope.taxonomy_id
       WHERE de.dynaprot_experiment = ?
         AND da.adj_pval < 0.05
-        AND ABS(da.diff) > 1
+        AND (da.diff < -1 OR da.diff > 1)
       ORDER BY ABS(da.diff) DESC
     `;
 
@@ -798,7 +798,7 @@ export const getTopChangingPeptidesByDynaProtExperiment = async (dynaprot_experi
         ON \`dec\`.dpx_comparison = da.dpx_comparison
       WHERE de.dynaprot_experiment = ?
         AND da.adj_pval < 0.05
-        AND ABS(da.diff) > 1
+        AND (da.diff < -1 OR da.diff > 1)
       ORDER BY ABS(da.diff) DESC
       LIMIT 20
     `;

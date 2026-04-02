@@ -3,11 +3,15 @@ import assert from 'node:assert';
 import db from '../config/database.js';
 import {
   extractProteinAccession,
+  fetchAllConditionData,
+  findProteinBySearchTerm,
   getTaxonomyName,
   getDoseResponseExperiments,
+  getDifferentialAbundanceByExperimentID,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
-  getSignificantProteinsByDynaProtExperiment
+  getSignificantProteinsByDynaProtExperiment,
+  getTopChangingPeptidesByDynaProtExperiment
 } from '../models/searchModel.js';
 
 test('extractProteinAccession returns the accession from a pipe-delimited protein name', () => {
@@ -86,6 +90,48 @@ test('getDifferentialAbundanceByExperimentIDs returns an empty array for empty i
   }
 });
 
+test('findProteinBySearchTerm uses EXISTS-based filtering while preserving wildcard parameters', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  let capturedParams = null;
+  db.query = async (query, params) => {
+    capturedQuery = query;
+    capturedParams = params;
+    return [[{ protein_name: 'MurA' }]];
+  };
+
+  try {
+    const result = await findProteinBySearchTerm('mura');
+
+    assert.match(capturedQuery, /EXISTS\s*\(/);
+    assert.match(capturedQuery, /SELECT DISTINCT/);
+    assert.deepStrictEqual(capturedParams, ['%mura%', '%mura%', '%mura%']);
+    assert.deepStrictEqual(result, [{ protein_name: 'MurA' }]);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('differential abundance queries no longer join organism_proteome_entries when not needed', async () => {
+  const originalQuery = db.query;
+  const queries = [];
+  db.query = async (query) => {
+    queries.push(query);
+    return [[{ pg_protein_accessions: 'P11111' }]];
+  };
+
+  try {
+    await getDifferentialAbundanceByExperimentID('CMP-001');
+    await getDifferentialAbundanceByExperimentIDs(['CMP-001', 'CMP-002']);
+
+    assert.strictEqual(queries.length, 2);
+    assert.doesNotMatch(queries[0], /organism_proteome_entries/);
+    assert.doesNotMatch(queries[1], /organism_proteome_entries/);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
 test('getDynaProtExperimentMetaData optionally includes the QC PDF field', async () => {
   const originalQuery = db.query;
   const queries = [];
@@ -107,40 +153,46 @@ test('getDynaProtExperimentMetaData optionally includes the QC PDF field', async
 
 test('getSignificantProteinsByDynaProtExperiment aggregates peptide rows by protein accession', async () => {
   const originalQuery = db.query;
-  db.query = async () => [[
-    {
-      dpx_comparison: 'CMP-001',
-      pg_protein_accessions: 'P11111',
-      diff: 2.5,
-      adj_pval: 0.001,
-      protein_description: null
-    },
-    {
-      dpx_comparison: 'CMP-002',
-      pg_protein_accessions: 'P11111',
-      diff: 1.8,
-      adj_pval: 0.002,
-      protein_description: 'Protein one'
-    },
-    {
-      dpx_comparison: 'CMP-003',
-      pg_protein_accessions: 'Q22222',
-      diff: -4.2,
-      adj_pval: 0.003,
-      protein_description: 'Protein two'
-    },
-    {
-      dpx_comparison: 'CMP-004',
-      pg_protein_accessions: '',
-      diff: 10,
-      adj_pval: 0.004,
-      protein_description: 'Ignored'
-    }
-  ]];
+  let capturedQuery = null;
+  db.query = async (query) => {
+    capturedQuery = query;
+    return [[
+      {
+        dpx_comparison: 'CMP-001',
+        pg_protein_accessions: 'P11111',
+        diff: 2.5,
+        adj_pval: 0.001,
+        protein_description: null
+      },
+      {
+        dpx_comparison: 'CMP-002',
+        pg_protein_accessions: 'P11111',
+        diff: 1.8,
+        adj_pval: 0.002,
+        protein_description: 'Protein one'
+      },
+      {
+        dpx_comparison: 'CMP-003',
+        pg_protein_accessions: 'Q22222',
+        diff: -4.2,
+        adj_pval: 0.003,
+        protein_description: 'Protein two'
+      },
+      {
+        dpx_comparison: 'CMP-004',
+        pg_protein_accessions: '',
+        diff: 10,
+        adj_pval: 0.004,
+        protein_description: 'Ignored'
+      }
+    ]];
+  };
 
   try {
     const result = await getSignificantProteinsByDynaProtExperiment('DPE-001');
 
+    assert.match(capturedQuery, /da\.diff < -1 OR da\.diff > 1/);
+    assert.match(capturedQuery, /ORDER BY ABS\(da\.diff\) DESC/);
     assert.strictEqual(result.length, 2);
     assert.deepStrictEqual(result[0], {
       proteinAccession: 'Q22222',
@@ -162,6 +214,54 @@ test('getSignificantProteinsByDynaProtExperiment aggregates peptide rows by prot
       dpx_comparison: 'CMP-001',
       adj_pval: 0.001
     });
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('getTopChangingPeptidesByDynaProtExperiment uses a sargable diff threshold filter', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  db.query = async (query) => {
+    capturedQuery = query;
+    return [[{ peptide_key: 'pep-1' }]];
+  };
+
+  try {
+    await getTopChangingPeptidesByDynaProtExperiment('DPE-001');
+
+    assert.match(capturedQuery, /da\.diff < -1 OR da\.diff > 1/);
+    assert.doesNotMatch(capturedQuery, /ABS\(da\.diff\) > 1/);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('fetchAllConditionData pre-aggregates GO data before joining to differential abundance rows', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  db.query = async (query) => {
+    capturedQuery = query;
+    return [[{
+      dpx_comparison: 'CMP-001',
+      condition: 'Citrate',
+      go_ids: 'GO:1, GO:2',
+      go_terms: 'term 1, term 2'
+    }]];
+  };
+
+  try {
+    const result = await fetchAllConditionData('Citrate');
+
+    assert.match(capturedQuery, /SELECT\s+dpx_comparison,\s+GROUP_CONCAT\(DISTINCT go_id SEPARATOR ', '\) AS go_ids/s);
+    assert.match(capturedQuery, /\) go ON le\.dpx_comparison = go\.dpx_comparison/);
+    assert.doesNotMatch(capturedQuery, /GROUP BY\s+le\.dpx_comparison,\s*le\.condition,\s*da\.pg_protein_accessions/s);
+    assert.deepStrictEqual(result, [{
+      dpx_comparison: 'CMP-001',
+      condition: 'Citrate',
+      go_ids: 'GO:1, GO:2',
+      go_terms: 'term 1, term 2'
+    }]);
   } finally {
     db.query = originalQuery;
   }
