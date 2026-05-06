@@ -309,6 +309,91 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
   }
 };
 
+export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
+  if (!Array.isArray(experimentIDs) || experimentIDs.length === 0) {
+    return [];
+  }
+
+  try {
+    const placeholders = experimentIDs.map(() => '?').join(',');
+    const query = `
+      SELECT
+        da.dpx_comparison,
+        da.pg_protein_accessions,
+        da.diff,
+        da.adj_pval,
+        COALESCE(
+          ope_exact.protein_description,
+          ope_any.protein_description,
+          NULLIF(ps.protein_description, 'Description not available')
+        ) AS protein_description
+      FROM differential_abundance da
+      LEFT JOIN protein_scores ps
+        ON ps.dpx_comparison = da.dpx_comparison
+        AND ps.pg_protein_accessions = da.pg_protein_accessions
+      LEFT JOIN dynaprot_experiment_comparison \`dec\`
+        ON \`dec\`.dpx_comparison = da.dpx_comparison
+      LEFT JOIN (
+        SELECT protein_name, taxonomy_id, MAX(protein_description) AS protein_description
+        FROM organism_proteome_entries
+        GROUP BY protein_name, taxonomy_id
+      ) ope_exact
+        ON ope_exact.protein_name = da.pg_protein_accessions
+        AND ope_exact.taxonomy_id = \`dec\`.taxonomy_id
+      LEFT JOIN (
+        SELECT protein_name, MAX(protein_description) AS protein_description
+        FROM organism_proteome_entries
+        GROUP BY protein_name
+      ) ope_any
+        ON ope_any.protein_name = da.pg_protein_accessions
+      WHERE da.dpx_comparison IN (${placeholders})
+        AND da.adj_pval < 0.05
+        AND (da.diff < -1 OR da.diff > 1)
+      ORDER BY ABS(da.diff) DESC
+    `;
+
+    const [rows] = await db.query(query, experimentIDs);
+    const proteinMap = new Map();
+
+    rows.forEach((row) => {
+      const proteinAccession = row.pg_protein_accessions;
+
+      if (!proteinAccession) {
+        return;
+      }
+
+      const existingProtein = proteinMap.get(proteinAccession);
+
+      if (!existingProtein) {
+        proteinMap.set(proteinAccession, {
+          proteinAccession,
+          pg_protein_accessions: proteinAccession,
+          diff: row.diff,
+          maxLog2FC: row.diff,
+          n_peptides: 1,
+          protein_description: row.protein_description || null,
+          dpx_comparison: row.dpx_comparison,
+          adj_pval: row.adj_pval
+        });
+        return;
+      }
+
+      existingProtein.n_peptides += 1;
+
+      if (!existingProtein.protein_description && row.protein_description) {
+        existingProtein.protein_description = row.protein_description;
+      }
+    });
+
+    return Array.from(proteinMap.values()).sort(
+      (left, right) => Math.abs(right.maxLog2FC) - Math.abs(left.maxLog2FC)
+    );
+  } catch (error) {
+    console.error('Error in getSignificantProteinsByExperimentIDs:', error);
+    throw error;
+  }
+};
+
 export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_experiment) => {
   try {
     const query = `
@@ -658,7 +743,7 @@ export const getDynaProtExperimentMetaData = async (dynaprot_experiment, { inclu
   try {
     const qcPdfField = includeQcPdf ? ', qc_pdf_file' : '';
     const [rows] = await db.query(`
-        SELECT dynaprot_experiment, \`condition\`, taxonomy_id, strain, publication, instrument, experiment, approach, digestion_protocol, protease, pk_digestion_time_in_sec${qcPdfField}
+        SELECT dynaprot_experiment, perturbation, \`condition\`, taxonomy_id, strain, publication, instrument, experiment, approach, digestion_protocol, protease, pk_digestion_time_in_sec${qcPdfField}
         FROM dynaprot_experiment
         WHERE dynaprot_experiment = ?
     `, [dynaprot_experiment]);

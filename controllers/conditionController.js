@@ -1,6 +1,7 @@
 import { 
     getConditions,
     getDifferentialAbundanceByExperimentIDs,
+    getSignificantProteinsByExperimentIDs,
     getExperimentsByCondition, 
     getProteinScoresForMultipleExperiments,
     getGoEnrichmentResultsByExperimentIDs,
@@ -145,9 +146,9 @@ export const returnconditionGroup = async(req, res) => {
     const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
     const dynaprotExperiments = [...new Set(experimentIDsList.map(e => e.split('-')[0]))];
 
-    const [differentialAbundance, proteinScores, goEnrichmentData] = await Promise.all([
+    const [differentialAbundance, significantProteins, goEnrichmentData] = await Promise.all([
         getDifferentialAbundanceByExperimentIDs(experimentIDsList),
-        getProteinScoresForMultipleExperiments(experimentIDsList), 
+        getSignificantProteinsByExperimentIDs(experimentIDsList), 
         getGoEnrichmentResultsByExperimentIDs(experimentIDsList)
     ]);
   
@@ -161,7 +162,7 @@ export const returnconditionGroup = async(req, res) => {
       entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
     });
     const extractedGoTerms = extractGoTerms(goEnrichmentData);
-    const proteinScoresTable = combineExperiments(proteinScores);
+    const proteinScoresTable = significantProteins;
     const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);
     const doseResponseExperiments = await getDoseResponseExperiments(dynaprotExperiments);
     
