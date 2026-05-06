@@ -18,14 +18,14 @@ import { extractProteinAccession } from './searchModel.js';
  *   - `adj_pval`: The adjusted p-value (q-value) for significance.
  * @param {string} proteinSequence - The full amino acid sequence of the protein.
  * 
- * @returns {Array<{index: number, sig: number|null, aminoacid: string, detected: number|null, score: number}>} 
+ * @returns {Array<{index: number, sig: number|null, aminoacid: string, detected: number|null, score: number|null}>} 
  *          An array of processed data points representing each position in the sequence up to maxIndex.
  *          Each element is an object with the following fields:
  *          - `index`: The zero-based position in the protein sequence.
  *          - `sig`: The significance value based on log2 fold change if thresholds are met
  *          - `aminoacid`: The single-letter amino acid code at this position.
  *          - `detected`: 1 if the position was covered by a peptide but did not meet significance thresholds, otherwise null.
- *          - `score`: Currently the averaged diff at this position
+ *          - `score`: The normalized averaged score at this position, or null when there is no coverage
  */
 export function processExperimentData(data, proteinSequence) {
   if (!data || data.length === 0) return [];
@@ -66,15 +66,15 @@ export function processExperimentData(data, proteinSequence) {
   // We cannot normalize with all values equal. Returning 0.5. Same if we do not have any valid values.
   const isDegenerate = min === max;
 
-  // 5. Build the final array with normalized scores, setting sig and detected to 1
+  // 5. Build the final array with normalized scores. Uncovered positions must use null.
   return averages.map((avg, index) => {
-    let normalizedScore = 1.0; // as per protti/R calculate_aa_scores.R
-    
-    if (avg !== null && !isDegenerate) {
-      normalizedScore = (avg - min) / (max - min);
-    }
-
     const isCovered = counts[index] > 0;
+
+    let normalizedScore = null;
+
+    if (isCovered) {
+      normalizedScore = isDegenerate ? 1.0 : (avg - min) / (max - min);
+    }
 
     return {
       index,
