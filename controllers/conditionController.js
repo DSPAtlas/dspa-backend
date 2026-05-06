@@ -3,7 +3,6 @@ import {
     getDifferentialAbundanceByExperimentIDs,
     getSignificantProteinsByExperimentIDs,
     getExperimentsByCondition, 
-    getProteinScoresForMultipleExperiments,
     getGoEnrichmentResultsByExperimentIDs,
     getDoseResponseExperiments,
     getDistinctDoseByExperimentComparisonIDs
@@ -40,37 +39,6 @@ const categorizeDataByExperiment = (data) => {
         map.get(experimentID).data.push(curr);
     });
     return Array.from(map.values());
-};
-
-
-
-const combineExperiments = (data) => {
-    const combinedData = {};
-
-    data.forEach(entry => {
-        const { dpx_comparison: experimentID, pg_protein_accessions: proteinAccession, cumulativeScore, protein_description: protein_description } = entry;
-
-        if (!combinedData[proteinAccession]) {
-            combinedData[proteinAccession] = {
-                totalScore: 0,
-                count: 0,
-                protein_description
-            };
-        }
-
-        combinedData[proteinAccession].totalScore += cumulativeScore;
-        combinedData[proteinAccession].count += 1;
-    });
-    const result = Object.entries(combinedData).map(([proteinAccession, { totalScore, count, protein_description }]) => ({
-        proteinAccession,
-        averageScore: totalScore / count,
-        count,
-        protein_description
-    }));
-
-    result.sort((a, b) => b.averageScore - a.averageScore);
-
-    return result;
 };
 
 
@@ -162,7 +130,7 @@ export const returnconditionGroup = async(req, res) => {
       entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
     });
     const extractedGoTerms = extractGoTerms(goEnrichmentData);
-    const proteinScoresTable = significantProteins;
+    const significantProteinsTable = significantProteins;
     const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);
     const doseResponseExperiments = await getDoseResponseExperiments(dynaprotExperiments);
     
@@ -176,7 +144,7 @@ export const returnconditionGroup = async(req, res) => {
                 goTerms:  extractedGoTerms,
                 experimentIDsList: experimentIDsList, 
                 differentialAbundanceDataList: differentialAbundanceDataList,
-                proteinScoresTable: proteinScoresTable,
+                proteinScoresTable: significantProteinsTable,
                 goEnrichmentData: filteredGoEnrichmentData,
                 doseResponseExperiments: doseResponseExperiments
              }

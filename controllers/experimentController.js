@@ -83,7 +83,8 @@ export const returnExperiment = async(req, res) => {
         comparison: comparisonLabelByComparisonID.get(protein.dpx_comparison) ?? protein.dpx_comparison
     }));
 
-    if (metadata) {
+    if (Array.isArray(metadata) && metadata.length > 0) {
+        const experimentMetadata = metadata[0];
         const requestDurationMs = Number(process.hrtime.bigint() - requestStart) / 1e6;
         console.info(
             `[Performance] Experiment endpoint ${experimentID} processed in ${requestDurationMs.toFixed(2)} ms`
@@ -93,8 +94,8 @@ export const returnExperiment = async(req, res) => {
             success: true,
             experimentData: {
                 experimentID: experimentID,
-                perturbation: metadata[0].perturbation,
-                metaData: metadata[0],
+                perturbation: experimentMetadata.perturbation,
+                metaData: experimentMetadata,
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScores: enrichedSignificantProteins,
                 significantProteins: enrichedSignificantProteins,
