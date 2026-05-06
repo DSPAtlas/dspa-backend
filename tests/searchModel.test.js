@@ -11,6 +11,7 @@ import {
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
   getSignificantProteinsByDynaProtExperiment,
+  getSignificantProteinsByExperimentIDs,
   getTopChangingPeptidesByDynaProtExperiment
 } from '../models/searchModel.js';
 
@@ -144,6 +145,8 @@ test('getDynaProtExperimentMetaData optionally includes the QC PDF field', async
     await getDynaProtExperimentMetaData('DPX-001');
     await getDynaProtExperimentMetaData('DPX-001', { includeQcPdf: true });
 
+    assert.match(queries[0], /perturbation/);
+    assert.match(queries[1], /perturbation/);
     assert.doesNotMatch(queries[0], /qc_pdf_file/);
     assert.match(queries[1], /qc_pdf_file/);
   } finally {
@@ -211,6 +214,100 @@ test('getSignificantProteinsByDynaProtExperiment aggregates peptide rows by prot
       maxLog2FC: 2.5,
       n_peptides: 2,
       protein_description: 'Protein one',
+      dpx_comparison: 'CMP-001',
+      adj_pval: 0.001
+    });
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('getSignificantProteinsByExperimentIDs returns an empty array for empty input without querying the database', async () => {
+  const originalQuery = db.query;
+  let wasCalled = false;
+  db.query = async () => {
+    wasCalled = true;
+    return [[]];
+  };
+
+  try {
+    const result = await getSignificantProteinsByExperimentIDs([]);
+    assert.deepStrictEqual(result, []);
+    assert.strictEqual(wasCalled, false);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('getSignificantProteinsByExperimentIDs aggregates significant peptide rows by protein accession', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  let capturedParams = null;
+  db.query = async (query, params) => {
+    capturedQuery = query;
+    capturedParams = params;
+    return [[
+      {
+        dpx_comparison: 'CMP-001',
+        pg_protein_accessions: 'P11111',
+        diff: -3.5,
+        adj_pval: 0.001,
+        protein_description: 'Protein one from strongest row'
+      },
+      {
+        dpx_comparison: 'CMP-002',
+        pg_protein_accessions: 'P11111',
+        diff: 2.0,
+        adj_pval: 0.002,
+        protein_description: 'Protein one later row'
+      },
+      {
+        dpx_comparison: 'CMP-002',
+        pg_protein_accessions: 'Q22222',
+        diff: 4.5,
+        adj_pval: 0.003,
+        protein_description: 'Protein two'
+      },
+      {
+        dpx_comparison: 'CMP-003',
+        pg_protein_accessions: '',
+        diff: 9.9,
+        adj_pval: 0.004,
+        protein_description: 'Ignored'
+      }
+    ]];
+  };
+
+  try {
+    const result = await getSignificantProteinsByExperimentIDs(['CMP-001', 'CMP-002']);
+
+    assert.match(capturedQuery, /FROM differential_abundance da/);
+    assert.match(capturedQuery, /LEFT JOIN protein_scores ps/);
+    assert.match(capturedQuery, /ope_exact\.protein_description/);
+    assert.match(capturedQuery, /ope_any\.protein_description/);
+    assert.match(capturedQuery, /NULLIF\(ps\.protein_description, 'Description not available'\)/);
+    assert.match(capturedQuery, /da\.adj_pval < 0\.05/);
+    assert.match(capturedQuery, /da\.diff < -1 OR da\.diff > 1/);
+    assert.match(capturedQuery, /ORDER BY ABS\(da\.diff\) DESC/);
+    assert.deepStrictEqual(capturedParams, ['CMP-001', 'CMP-002']);
+    assert.strictEqual(result.length, 2);
+    assert.deepStrictEqual(result[0], {
+      proteinAccession: 'Q22222',
+      pg_protein_accessions: 'Q22222',
+      diff: 4.5,
+      maxLog2FC: 4.5,
+      n_peptides: 1,
+      protein_description: 'Protein two',
+      dpx_comparison: 'CMP-002',
+      adj_pval: 0.003
+    });
+    assert.deepStrictEqual(result[1], {
+      proteinAccession: 'P11111',
+      pg_protein_accessions: 'P11111',
+      diff: -3.5,
+      maxLog2FC: -3.5,
+      n_peptides: 2,
+      protein_description: 'Protein one from strongest row',
       dpx_comparison: 'CMP-001',
       adj_pval: 0.001
     });
