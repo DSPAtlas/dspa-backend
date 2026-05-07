@@ -3,6 +3,27 @@ import { getProteinDataByName } from './searchModel.js';
 import { getDifferentialAbundanceByAccession } from './searchModel.js';
 import { extractProteinAccession } from './searchModel.js';
 
+export const AMINO_ACID_SCORE_METHODS = Object.freeze({
+  MULTIPLICATIVE: 'multiplicative',
+  ADDITIVE: 'additive'
+});
+
+// Reference aa_scores_*.tsv files were generated with the additive method.
+// Change this constant to AMINO_ACID_SCORE_METHODS.MULTIPLICATIVE if needed.
+export const AMINO_ACID_SCORE_METHOD = AMINO_ACID_SCORE_METHODS.ADDITIVE;
+
+const calculateAminoAcidScore = (diff, adjPval, method = AMINO_ACID_SCORE_METHOD) => {
+  if (method === AMINO_ACID_SCORE_METHODS.MULTIPLICATIVE) {
+    return -Math.log10(adjPval) * Math.abs(diff);
+  }
+
+  if (method === AMINO_ACID_SCORE_METHODS.ADDITIVE) {
+    return -Math.log10(adjPval) + Math.abs(diff);
+  }
+
+  throw new Error(`Unsupported amino acid score method: ${method}`);
+};
+
 
 
 
@@ -27,60 +48,91 @@ import { extractProteinAccession } from './searchModel.js';
  *          - `detected`: 1 if the position was covered by a peptide but did not meet significance thresholds, otherwise null.
  *          - `score`: The normalized averaged score at this position, or null when there is no coverage
  */
-export function processExperimentData(data, proteinSequence) {
+export function processExperimentData(data, proteinSequence, scoreMethod = AMINO_ACID_SCORE_METHOD) {
   if (!data || data.length === 0) return [];
 
-  const maxIndex = Math.max(...data.map(row => Math.round(row.pos_end)));
-  
-  // 1. Define arrays for sums and counts
-  const sums = new Array(maxIndex + 1).fill(0);
-  const counts = new Array(maxIndex + 1).fill(0);
+  // Match calculate_aa_scores.R:
+  //   distinct(protein, diff, adj_pval, start_position, end_position)
+  //   drop_na(diff, adj_pval)
+  //   score = additive or multiplicative formula
+  //   residue = seq(start_position, end_position)  # inclusive, 1-based biological positions
+  //   amino_acid_score = mean(score) per residue
+  //   amino_acid_score_normalized = min-max normalization per protein
+  const seenRows = new Set();
+  const residueScores = new Map();
+  let maxResidue = 0;
 
-  // 2. Accumulate sums and counts
   data.forEach(row => {
-    // If we ever get fractional indices, it will work wrongly and will not signal the error
-    // Rounding for peace of mind. We mostly expect integer indices.
-    const start = Math.round(row.pos_start);
-    const end = Math.round(row.pos_end);
+    if (row.diff === null || row.diff === undefined || row.adj_pval === null || row.adj_pval === undefined) {
+      return;
+    }
 
-    const log2FC = !isFinite(row.diff) ? 0 : row.diff;
-    const qvalue = row.adj_pval;
-    const score = -Math.log10(qvalue) + Math.abs(log2FC);
+    const diff = Number(row.diff);
+    const adjPval = Number(row.adj_pval);
+    const start = Math.round(Number(row.pos_start));
+    const end = Math.round(Number(row.pos_end));
 
-    for (let i = start; i < end; i++) {
-      if (i < sums.length) {
-        sums[i] += score;
-        counts[i] += 1;
+    // R's drop_na removes missing/NaN diff and adj_pval values. Positions must also be usable.
+    if (Number.isNaN(diff) || Number.isNaN(adjPval) || Number.isNaN(start) || Number.isNaN(end)) {
+      return;
+    }
+
+    // Peptide positions are expected to be 1-based inclusive coordinates.
+    if (start < 1 || end < start) {
+      return;
+    }
+
+    const distinctKey = [row.pg_protein_accessions ?? '', diff, adjPval, start, end].join('|');
+    if (seenRows.has(distinctKey)) {
+      return;
+    }
+    seenRows.add(distinctKey);
+
+    const score = calculateAminoAcidScore(diff, adjPval, scoreMethod);
+    if (!Number.isFinite(score)) {
+      return;
+    }
+
+    maxResidue = Math.max(maxResidue, end);
+
+    // Inclusive end, equivalent to R's seq(start_position, end_position).
+    for (let residue = start; residue <= end; residue++) {
+      if (!residueScores.has(residue)) {
+        residueScores.set(residue, []);
       }
+      residueScores.get(residue).push(score);
     }
   });
 
-  // 3. Calculate averages where we have observed the values, null otherwise
-  const averages = sums.map((sum, i) => counts[i] > 0 ? sum / counts[i] : null);
+  if (maxResidue === 0) return [];
 
-  // 4. Find min and max for normalization (ignoring nulls where count was 0)
-  const validAverages = averages.filter(avg => avg !== null);
-  const min = validAverages.length > 0 ? Math.min(...validAverages) : 0;
-  const max = validAverages.length > 0 ? Math.max(...validAverages) : 0;
+  const aminoAcidScores = new Map();
+  residueScores.forEach((scores, residue) => {
+    const sum = scores.reduce((acc, score) => acc + score, 0);
+    aminoAcidScores.set(residue, sum / scores.length);
+  });
 
-  // We cannot normalize with all values equal. Returning 0.5. Same if we do not have any valid values.
+  const validScores = Array.from(aminoAcidScores.values());
+  const min = validScores.length > 0 ? Math.min(...validScores) : 0;
+  const max = validScores.length > 0 ? Math.max(...validScores) : 0;
   const isDegenerate = min === max;
 
-  // 5. Build the final array with normalized scores. Uncovered positions must use null.
-  return averages.map((avg, index) => {
-    const isCovered = counts[index] > 0;
-
-    let normalizedScore = null;
-
-    if (isCovered) {
-      normalizedScore = isDegenerate ? 1.0 : (avg - min) / (max - min);
-    }
+  return Array.from({ length: maxResidue }, (_, arrayIndex) => {
+    const residue = arrayIndex + 1;
+    const aminoAcidScore = aminoAcidScores.get(residue) ?? null;
+    const isCovered = aminoAcidScore !== null;
+    const normalizedScore = isCovered
+      ? (isDegenerate ? 1.0 : (aminoAcidScore - min) / (max - min))
+      : null;
 
     return {
-      index,
+      index: residue,
+      residue,
       sig: isCovered ? 1 : null,
-      aminoacid: proteinSequence[index] || '',
+      aminoacid: proteinSequence[residue - 1] || '',
       detected: isCovered ? 1 : null,
+      amino_acid_score: aminoAcidScore,
+      amino_acid_score_normalized: normalizedScore,
       score: normalizedScore
     };
   });
