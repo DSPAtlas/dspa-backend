@@ -4,7 +4,6 @@ import {
     getSignificantProteinsByExperimentIDs,
     getExperimentsByCondition, 
     getGoEnrichmentResultsByExperimentIDs,
-    getDoseResponseExperiments,
     getDistinctDoseByExperimentComparisonIDs
 
 } from '../models/searchModel.js';
@@ -112,7 +111,6 @@ export const returnconditionGroup = async(req, res) => {
     
     const experimentIDs = await getExperimentsByCondition(parsedCondition);
     const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
-    const dynaprotExperiments = [...new Set(experimentIDsList.map(e => e.split('-')[0]))];
 
     const [differentialAbundance, significantProteins, goEnrichmentData] = await Promise.all([
         getDifferentialAbundanceByExperimentIDs(experimentIDsList),
@@ -132,7 +130,6 @@ export const returnconditionGroup = async(req, res) => {
     const extractedGoTerms = extractGoTerms(goEnrichmentData);
     const significantProteinsTable = significantProteins;
     const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);
-    const doseResponseExperiments = await getDoseResponseExperiments(dynaprotExperiments);
     
 
     if (experimentIDsList) {
@@ -146,7 +143,6 @@ export const returnconditionGroup = async(req, res) => {
                 differentialAbundanceDataList: differentialAbundanceDataList,
                 proteinScoresTable: significantProteinsTable,
                 goEnrichmentData: filteredGoEnrichmentData,
-                doseResponseExperiments: doseResponseExperiments
              }
          });
      } else {

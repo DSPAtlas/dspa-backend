@@ -6,7 +6,6 @@ import {
   fetchAllConditionData,
   findProteinBySearchTerm,
   getTaxonomyName,
-  getDoseResponseExperiments,
   getDifferentialAbundanceByExperimentID,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
@@ -34,45 +33,6 @@ test('getTaxonomyName resolves known taxonomy IDs and reports unknown ones', () 
   assert.strictEqual(getTaxonomyName(1234), 'Taxonomy ID not found');
 });
 
-test('getDoseResponseExperiments returns an empty array for an empty input list without querying the database', async () => {
-  const originalQuery = db.query;
-  let wasCalled = false;
-  db.query = async () => {
-    wasCalled = true;
-    return [[]];
-  };
-
-  try {
-    const result = await getDoseResponseExperiments([]);
-    assert.deepStrictEqual(result, []);
-    assert.strictEqual(wasCalled, false);
-  } finally {
-    db.query = originalQuery;
-  }
-});
-
-test('getDoseResponseExperiments queries the database and returns the dynaprot experiment IDs', async () => {
-  const originalQuery = db.query;
-  let capturedQuery = null;
-  let capturedParams = null;
-  db.query = async (query, params) => {
-    capturedQuery = query;
-    capturedParams = params;
-    return [[
-      { dynaprot_experiment: 'DPX-001' },
-      { dynaprot_experiment: 'DPX-002' }
-    ]];
-  };
-
-  try {
-    const result = await getDoseResponseExperiments(['DPX-001', 'DPX-002']);
-    assert.match(capturedQuery, /SELECT DISTINCT dynaprot_experiment/);
-    assert.deepStrictEqual(capturedParams, ['DPX-001', 'DPX-002']);
-    assert.deepStrictEqual(result, ['DPX-001', 'DPX-002']);
-  } finally {
-    db.query = originalQuery;
-  }
-});
 
 test('getDifferentialAbundanceByExperimentIDs returns an empty array for empty input', async () => {
   const originalQuery = db.query;
