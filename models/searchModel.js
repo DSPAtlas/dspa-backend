@@ -191,16 +191,6 @@ if (match) {
 }
 };
 
-export const findProteinByOrganismAndName = async(taxonomyID, proteinName) => {
-try {
-  const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE taxonomy_id = ? AND protein_name LIKE ?`;
-  const [rows] = await db.query(query, [taxonomyID, `%${proteinName}%`]);
-  return rows;
-} catch (error) {
-  throw error; 
-}
-};
-
 export const getProteinDataByName = async(proteinName) => {
 try {
   const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
@@ -245,17 +235,6 @@ export const getTaxonomyName = (taxId) => {
     };
     
     return taxonomyDict[taxId] || "Taxonomy ID not found";
-};
-
-
-export const findProteinByName = async(proteinName) => {
-  try {
-    const query = `SELECT seq, protein_name, protein_description FROM organism_proteome_entries WHERE protein_name LIKE ?`;
-    const [rows] = await db.query(query, [proteinName]);
-    return rows;
-  } catch (error) {
-    throw error; 
-  }
 };
 
 export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
@@ -485,40 +464,6 @@ export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
 };
 
 
-
-export const getGoEnrichmentResultsByExperimentID = async (dynaprot_experiment) => {
-  try {
-    const [rows] = await db.query(`
-        SELECT 
-            gt.go_term,
-            ga.adj_pval,
-            ga.dpx_comparison,
-            gt.accessions
-        FROM 
-            go_analysis ga
-        LEFT JOIN 
-            go_term gt
-        ON 
-            ga.go_id = gt.go_id
-        INNER JOIN 
-            dynaprot_experiment_comparison le
-        ON 
-            ga.dpx_comparison = le.dpx_comparison
-        WHERE 
-            ga.dpx_comparison = ?
-        AND 
-            gt.taxonomy_id = le.taxonomy_id
-        AND 
-            ga.adj_pval < 1
-    `, [dynaprot_experiment]);
-    return rows;
-} catch (error) {
-    console.error('Error in get getGoEnrichmentResultsByExperimentID(experimentID):', error);
-    throw error;
-}
-};
-
-
 // This query is for experiments overview page. There are much more columns in the table.
 export const getAllExperiments = async () => {
   const query = `
@@ -564,19 +509,6 @@ export const getExperimentsByCondition = async (condition) => {
     throw error;
   }
 };
-export const getAssociatedExperimentIDs = async (groupID) => {
-  try {
-      const [rows] = await db.query(`
-          SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
-          FROM dynaprot_experiment_comparison
-          WHERE dynaprot_experiment = ?
-      `, [groupID]);
-      return rows;
-  } catch (error) {
-      console.error('Error fetching associated experiment IDs:', error.message);
-      throw error;
-  }
-};
 
 
 
@@ -596,22 +528,6 @@ export const getConditions = async () => {
       return rows;
   } catch (error) {
       console.error('Error fetching conditions:', error.message);
-      throw error;
-  }
-};
-
-export const getDifferentialAbundanceByAccessionGroup = async (pgProteinAccessions, groupID) => {
-  try {
-      const [rows] = await db.query(`
-          SELECT dpx_comparison, pg_protein_accessions, pos_start, pos_end, diff, adj_pval
-          FROM differential_abundance
-          WHERE pg_protein_accessions = ?
-          AND dpx_comparison = ?
-          ORDER BY pos_start
-      `, [pgProteinAccessions, groupID]);
-      return rows;
-  } catch (error) {
-      console.error('Error in getDifferentialAbundanceByAccession:', error);
       throw error;
   }
 };
@@ -708,23 +624,6 @@ export const fetchAllConditionData = async (condition) => {
   }
 };
 
-
-
-
-export const getExperimentMetaData = async (experimentID) => {
-  try {
-    const [rows] = await db.query(`
-        SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
-        FROM dynaprot_experiment_comparison
-        WHERE dpx_comparison = ?
-    `, [experimentID]);
-    return rows;
-} catch (error) {
-    console.error('Error in get getExperimentMetaData:', error);
-    throw error;
-}
-};
-
 export const getDynaProtExperimentMetaData = async (dynaprot_experiment, { includeQcPdf = false } = {}) => {
   try {
     const qcPdfField = includeQcPdf ? ', qc_pdf_file' : '';
@@ -738,40 +637,6 @@ export const getDynaProtExperimentMetaData = async (dynaprot_experiment, { inclu
     console.error('Error in get  getDynaProtExperimentMetaData:', error);
     throw error;
 }
-};
-
-export const getSummarizedProteinScoreByDynaProtExperiment = async (dynaprot_experiment) => {
-  try {
-    const query = `
-      SELECT 
-        ps.pg_protein_accessions,
-        ope.protein_description,  -- from organism_proteome_entries
-        SUM(ps.cumulativeScore) AS total_cumulative_score
-      FROM 
-        dynaprot_experiment de
-      JOIN 
-        dynaprot_experiment_comparison \`dec\`
-        ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
-      JOIN 
-        protein_scores ps
-        ON \`dec\`.dpx_comparison = ps.dpx_comparison
-      LEFT JOIN 
-        organism_proteome_entries ope
-        ON ps.pg_protein_accessions = ope.protein_name
-        AND \`dec\`.taxonomy_id = ope.taxonomy_id  -- ensure matching species
-      WHERE 
-        de.dynaprot_experiment = ?
-      GROUP BY 
-        ps.pg_protein_accessions, ope.protein_description
-      ORDER BY 
-        total_cumulative_score DESC
-    `;
-    const [rows] = await db.query(query, [dynaprot_experiment]);
-    return rows;
-  } catch (error) {
-    console.error('Error in getSummarizedProteinScoreByDynaProtExperiment:', error);
-    throw error;
-  }
 };
 
 export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experiment) => {
@@ -877,48 +742,6 @@ export const getTopChangingPeptidesByDynaProtExperiment = async (dynaprot_experi
     return rows;
   } catch (error) {
     console.error('Error in getTopChangingPeptidesByDynaProtExperiment:', error);
-    throw error;
-  }
-};
-
-
-
-
-export const getProteinScoreforSingleExperiment = async (experimentID) => {
-  try {
-    const [rows] = await db.query(`
-        SELECT pg_protein_accessions, protein_description, cumulativeScore, dpx_comparison
-        FROM protein_scores
-        WHERE dpx_comparison = ?
-    `, [experimentID]);
-    return rows;
-} catch (error) {
-    console.error('Error in get getProteinScoreforSingleExperiment:', error);
-    throw error;
-}
-};
-
-export const getProteinScoresForMultipleExperiments = async (experimentIDs) => {
-  try {
-    // Early return if the experimentIDs array is empty
-    if (!Array.isArray(experimentIDs) || experimentIDs.length === 0) {
-      console.warn('No experiment IDs provided for protein scores.');
-      return []; // Return an empty array to indicate no results
-    }
-
-    const placeholders = experimentIDs.map(() => '?').join(',');
-
-    const query = `
-        SELECT ps.pg_protein_accessions, ps.cumulativeScore, ps.dpx_comparison, op.protein_description
-        FROM protein_scores ps
-        JOIN organism_proteome_entries op ON ps.pg_protein_accessions = op.protein_name
-        WHERE ps.dpx_comparison IN (${placeholders})
-    `;
-
-    const [rows] = await db.query(query, experimentIDs);
-    return rows;
-  } catch (error) {
-    console.error('Error in getProteinScoresForMultipleExperiments:', error);
     throw error;
   }
 };
