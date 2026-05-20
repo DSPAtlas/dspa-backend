@@ -3,15 +3,12 @@ import assert from 'node:assert';
 import db from '../config/database.js';
 import {
   extractProteinAccession,
-  fetchAllConditionData,
   findProteinBySearchTerm,
   getTaxonomyName,
-  getDifferentialAbundanceByExperimentID,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
   getSignificantProteinsByDynaProtExperiment,
-  getSignificantProteinsByExperimentIDs,
-  getTopChangingPeptidesByDynaProtExperiment
+  getSignificantProteinsByExperimentIDs
 } from '../models/searchModel.js';
 
 test('extractProteinAccession returns the accession from a pipe-delimited protein name', () => {
@@ -82,12 +79,10 @@ test('differential abundance queries no longer join organism_proteome_entries wh
   };
 
   try {
-    await getDifferentialAbundanceByExperimentID('CMP-001');
     await getDifferentialAbundanceByExperimentIDs(['CMP-001', 'CMP-002']);
 
-    assert.strictEqual(queries.length, 2);
+    assert.strictEqual(queries.length, 1);
     assert.doesNotMatch(queries[0], /organism_proteome_entries/);
-    assert.doesNotMatch(queries[1], /organism_proteome_entries/);
   } finally {
     db.query = originalQuery;
   }
@@ -271,54 +266,6 @@ test('getSignificantProteinsByExperimentIDs aggregates significant peptide rows 
       dpx_comparison: 'CMP-001',
       adj_pval: 0.001
     });
-  } finally {
-    db.query = originalQuery;
-  }
-});
-
-test('getTopChangingPeptidesByDynaProtExperiment uses a sargable diff threshold filter', async () => {
-  const originalQuery = db.query;
-  let capturedQuery = null;
-  db.query = async (query) => {
-    capturedQuery = query;
-    return [[{ peptide_key: 'pep-1' }]];
-  };
-
-  try {
-    await getTopChangingPeptidesByDynaProtExperiment('DPE-001');
-
-    assert.match(capturedQuery, /da\.diff < -1 OR da\.diff > 1/);
-    assert.doesNotMatch(capturedQuery, /ABS\(da\.diff\) > 1/);
-  } finally {
-    db.query = originalQuery;
-  }
-});
-
-test('fetchAllConditionData pre-aggregates GO data before joining to differential abundance rows', async () => {
-  const originalQuery = db.query;
-  let capturedQuery = null;
-  db.query = async (query) => {
-    capturedQuery = query;
-    return [[{
-      dpx_comparison: 'CMP-001',
-      condition: 'Citrate',
-      go_ids: 'GO:1, GO:2',
-      go_terms: 'term 1, term 2'
-    }]];
-  };
-
-  try {
-    const result = await fetchAllConditionData('Citrate');
-
-    assert.match(capturedQuery, /SELECT\s+dpx_comparison,\s+GROUP_CONCAT\(DISTINCT go_id SEPARATOR ', '\) AS go_ids/s);
-    assert.match(capturedQuery, /\) go ON le\.dpx_comparison = go\.dpx_comparison/);
-    assert.doesNotMatch(capturedQuery, /GROUP BY\s+le\.dpx_comparison,\s*le\.condition,\s*da\.pg_protein_accessions/s);
-    assert.deepStrictEqual(result, [{
-      dpx_comparison: 'CMP-001',
-      condition: 'Citrate',
-      go_ids: 'GO:1, GO:2',
-      go_terms: 'term 1, term 2'
-    }]);
   } finally {
     db.query = originalQuery;
   }

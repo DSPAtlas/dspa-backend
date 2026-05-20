@@ -237,21 +237,6 @@ export const getTaxonomyName = (taxId) => {
     return taxonomyDict[taxId] || "Taxonomy ID not found";
 };
 
-export const getDifferentialAbundanceByExperimentID = async (experimentID) => {
-  try {
-    const query = `
-        SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval
-        FROM differential_abundance da
-        WHERE da.dpx_comparison = ? AND da.adj_pval > 0
-    `;
-    const [rows] = await db.query(query, [experimentID]);
-    return rows;
-  } catch (error) { 
-      console.error('Error in getDifferentialAbundanceByExperimentID:', error);
-      throw error;
-  }
-};
-
 export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => {
   if (experimentIDs.length > 0) {  
     try {
@@ -586,44 +571,6 @@ export const getDistinctDoseByExperimentComparisonIDs = async (experimentCompari
   }
 };
 
-export const fetchAllConditionData = async (condition) => {
-  try {
-    const [rows] = await db.query(`
-        SELECT
-            le.dpx_comparison,
-            le.condition,
-            da.pg_protein_accessions,
-            da.diff AS differential_abundance_value,
-            da.pos_start,
-            da.adj_pval AS differential_abundance_score,
-            ps.cumulativeScore AS protein_score,
-            go.go_ids,
-            go.go_terms
-        FROM
-            dynaprot_experiment_comparison le
-        JOIN
-            differential_abundance da ON le.dpx_comparison = da.dpx_comparison
-        LEFT JOIN
-            (
-                SELECT
-                    dpx_comparison,
-                    GROUP_CONCAT(DISTINCT go_id SEPARATOR ', ') AS go_ids,
-                    GROUP_CONCAT(DISTINCT term SEPARATOR ', ') AS go_terms
-                FROM go_analysis
-                GROUP BY dpx_comparison
-            ) go ON le.dpx_comparison = go.dpx_comparison
-        LEFT JOIN
-            protein_scores ps ON da.pg_protein_accessions = ps.pg_protein_accessions AND le.dpx_comparison = ps.dpx_comparison
-        WHERE
-            le.condition = ?
-    `, [condition]);
-    return rows;
-  } catch (error) {
-    console.error('Error in fetchAllConditonData', error);
-    throw error;
-  }
-};
-
 export const getDynaProtExperimentMetaData = async (dynaprot_experiment, { includeQcPdf = false } = {}) => {
   try {
     const qcPdfField = includeQcPdf ? ', qc_pdf_file' : '';
@@ -714,34 +661,6 @@ export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experi
     return aggregatedProteins;
   } catch (error) {
     console.error('Error in getSignificantProteinsByDynaProtExperiment:', error);
-    throw error;
-  }
-};
-
-export const getTopChangingPeptidesByDynaProtExperiment = async (dynaprot_experiment) => {
-  try {
-    const query = `
-      SELECT
-        da.pg_protein_accessions,
-        da.pep_grouping_key AS peptide_key,
-        da.diff,
-        da.adj_pval,
-        da.dpx_comparison
-      FROM dynaprot_experiment de
-      JOIN dynaprot_experiment_comparison \`dec\`
-        ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
-      JOIN differential_abundance da
-        ON \`dec\`.dpx_comparison = da.dpx_comparison
-      WHERE de.dynaprot_experiment = ?
-        AND da.adj_pval < 0.05
-        AND (da.diff < -1 OR da.diff > 1)
-      ORDER BY ABS(da.diff) DESC
-      LIMIT 20
-    `;
-    const [rows] = await db.query(query, [dynaprot_experiment]);
-    return rows;
-  } catch (error) {
-    console.error('Error in getTopChangingPeptidesByDynaProtExperiment:', error);
     throw error;
   }
 };

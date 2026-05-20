@@ -89,8 +89,6 @@ The backend serves the DSPA frontend by returning protein-centric LiP and differ
   - Central data-access module for search, experiments, conditions, GO enrichment, UniProt fetches, metadata lookups, and dose-response queries.
 - `models/proteinModel.js`
   - Converts raw peptide-level abundance rows into sequence-position score vectors and builds protein-level payloads for visualization.
-- `models/conditionModel.js`
-  - Contains condition-oriented score aggregation helpers covered by the current backend tests.
 
 ### Runtime, testing, and integration points
 
@@ -98,6 +96,5 @@ The backend serves the DSPA frontend by returning protein-centric LiP and differ
   - Defines the backend runtime (`node index.mjs`) and test command (`node --test`) together with the Express/Joi/database dependencies.
 - `.github/workflows/tests.yml`
   - GitHub Actions workflow that installs dependencies and runs the backend test suite on `master` and `ames/dev`.
-- `tests/proteinModel.test.js`, `tests/conditionModel.test.js`
-  - Automated tests for the protein score preparation logic and condition score aggregation helpers.
-
+- `tests/proteinModel.test.js`, `tests/searchModel.test.js`
+  - Automated tests for protein score preparation and search/experiment data-access helpers.
