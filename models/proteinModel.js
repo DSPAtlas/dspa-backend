@@ -1,16 +1,15 @@
-
 import { getProteinDataByName } from './searchModel.js';
 import { getDifferentialAbundanceByAccession } from './searchModel.js';
 import { extractProteinAccession } from './searchModel.js';
 
-export const AMINO_ACID_SCORE_METHODS = Object.freeze({
+const AMINO_ACID_SCORE_METHODS = Object.freeze({
   MULTIPLICATIVE: 'multiplicative',
   ADDITIVE: 'additive'
 });
 
 // Reference aa_scores_*.tsv files were generated with the additive method.
 // Change this constant to AMINO_ACID_SCORE_METHODS.MULTIPLICATIVE if needed.
-export const AMINO_ACID_SCORE_METHOD = AMINO_ACID_SCORE_METHODS.ADDITIVE;
+const AMINO_ACID_SCORE_METHOD = AMINO_ACID_SCORE_METHODS.ADDITIVE;
 
 const calculateAminoAcidScore = (diff, adjPval, method = AMINO_ACID_SCORE_METHOD) => {
   if (method === AMINO_ACID_SCORE_METHODS.MULTIPLICATIVE) {
@@ -138,7 +137,7 @@ export function processExperimentData(data, proteinSequence, scoreMethod = AMINO
   });
 }
 
-export const prepareData = (jsonData, proteinSequence) => {
+const prepareData = (jsonData, proteinSequence) => {
   /**
    * Prepare data for barcode visualization
    * 
@@ -172,7 +171,7 @@ export const prepareData = (jsonData, proteinSequence) => {
   }, {});
 
   return {processedData};
-}
+};
 
 
 
