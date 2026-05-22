@@ -43,8 +43,6 @@ export const returnExperiment = async(req, res) => {
         }
     
     const { experimentID, page, limit, includeQcPdf } = value;
-
-    const offset = (page - 1) * limit;
     
     const [
         metadata,
@@ -114,6 +112,5 @@ export const returnExperiment = async(req, res) => {
         res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
-
 
 

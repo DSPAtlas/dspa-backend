@@ -86,29 +86,6 @@ export const returnconditionGroup = async(req, res) => {
     const { condition } = value;
     const parsedCondition = parseConditionSelection(condition);
 
-    const extractGoTerms = (data) => {
-        const goTermsMap = new Map();
-    
-        data.forEach(item => {
-            const goTerm = item.go_term;
-            const proteinAccessions = item.accessions ? item.accessions.split(',') : [];
-    
-            if (!goTermsMap.has(goTerm)) {
-                goTermsMap.set(goTerm, { go_term: goTerm, accessions: new Set() });
-            }
-    
-            // Add each protein accession to the set
-            proteinAccessions.forEach(accession => {
-                goTermsMap.get(goTerm).accessions.add(accession);
-            });
-        });
-    
-        return Array.from(goTermsMap.values()).map(item => ({
-            go_term: item.go_term,
-            accessions: Array.from(item.accessions)
-        }));
-    };
-    
     const experimentIDs = await getExperimentsByCondition(parsedCondition);
     const experimentIDsList = experimentIDs.map(item => item.dpx_comparison);
 
@@ -127,8 +104,6 @@ export const returnconditionGroup = async(req, res) => {
     differentialAbundanceDataList.forEach(entry => {
       entry.dose = doseByComparisonID.get(entry.experimentID) ?? entry.experimentID;
     });
-    const extractedGoTerms = extractGoTerms(goEnrichmentData);
-    const significantProteinsTable = significantProteins;
     const filteredGoEnrichmentData = goEnrichmentData.filter(item => item.adj_pval < 0.5);
     
 
@@ -138,10 +113,9 @@ export const returnconditionGroup = async(req, res) => {
              conditionData: {
                 condition: parsedCondition.condition,
                 taxonomyId: parsedCondition.taxonomyId,
-                goTerms:  extractedGoTerms,
                 experimentIDsList: experimentIDsList, 
                 differentialAbundanceDataList: differentialAbundanceDataList,
-                proteinScoresTable: significantProteinsTable,
+                proteinScoresTable: significantProteins,
                 goEnrichmentData: filteredGoEnrichmentData,
              }
          });
