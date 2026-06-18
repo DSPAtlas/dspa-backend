@@ -25,9 +25,27 @@ test('extractProteinAccession throws for an invalid protein name format', () => 
   );
 });
 
-test('getTaxonomyName resolves known taxonomy IDs and reports unknown ones', () => {
-  assert.strictEqual(getTaxonomyName(9606), 'Homo sapiens');
-  assert.strictEqual(getTaxonomyName(1234), 'Taxonomy ID not found');
+test('getTaxonomyName resolves taxonomy IDs from the database and reports unknown ones', async () => {
+  const originalQuery = db.query;
+  const capturedParams = [];
+  db.query = async (query, params) => {
+    assert.match(query, /FROM organism/);
+    capturedParams.push(params);
+
+    if (params[0] === 9606) {
+      return [[{ organism_name: 'Homo sapiens' }]];
+    }
+
+    return [[]];
+  };
+
+  try {
+    assert.strictEqual(await getTaxonomyName(9606), 'Homo sapiens');
+    assert.strictEqual(await getTaxonomyName(1234), 'Taxonomy ID not found');
+    assert.deepStrictEqual(capturedParams, [[9606], [1234]]);
+  } finally {
+    db.query = originalQuery;
+  }
 });
 
 

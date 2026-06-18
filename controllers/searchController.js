@@ -28,13 +28,13 @@ export const searchEntries = async (req, res) => {
                 message: 'No entries found for the given search term.'
             });
         } else {
-            const tableData = results.map(entry => ({
+            const tableData = await Promise.all(results.map(async entry => ({
                 proteinName: entry.protein_name,
                 proteinDescription: entry.protein_description,
                 geneName: entry.gene_name,
                 taxonomyID: entry.taxonomy_id,
-                taxonomyName: getTaxonomyName(entry.taxonomy_id)
-            }));
+                taxonomyName: await getTaxonomyName(entry.taxonomy_id)
+            })));
             return res.status(200).json({
                 success: true,
                 message: 'Multiple entries found, see the table below for details.',
@@ -50,5 +50,4 @@ export const searchEntries = async (req, res) => {
         });
     }
 };
-
 
