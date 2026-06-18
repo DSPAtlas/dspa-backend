@@ -89,3 +89,9 @@ The backend serves the DSPA frontend by returning protein-centric LiP and differ
   - GitHub Actions workflow that installs dependencies and runs the backend test suite on `master` and `ames/dev`.
 - `tests/proteinModel.test.js`, `tests/searchModel.test.js`
   - Automated tests for protein score preparation and search/experiment data-access helpers.
+
+
+## Health check
+```/api/v1/health```
+
+Must return 200 OK.
