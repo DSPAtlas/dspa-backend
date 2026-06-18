@@ -1,6 +1,9 @@
 import { getProteinDataByName } from './searchModel.js';
 import { getDifferentialAbundanceByAccession } from './searchModel.js';
 import { extractProteinAccession } from './searchModel.js';
+import * as proteinModelFm from './proteinModelFm.js';
+
+const USE_FLAT_MIRROR = process.env.DSPA_USE_FLAT_MIRROR === '1';
 
 const AMINO_ACID_SCORE_METHODS = Object.freeze({
   MULTIPLICATIVE: 'multiplicative',
@@ -176,6 +179,10 @@ const prepareData = (jsonData, proteinSequence) => {
 
 
 export const getProteinFeatures = async(proteinName) => {
+  if (USE_FLAT_MIRROR) {
+    return proteinModelFm.getProteinFeatures(proteinName);
+  }
+
   try {
     const fastaEntries = await getProteinDataByName(proteinName);
     if (fastaEntries.length === 0) {

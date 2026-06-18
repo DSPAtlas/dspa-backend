@@ -2,11 +2,13 @@ import db from '../config/database.js';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import * as searchModelFm from './searchModelFm.js';
 
 const UNIPROT_CACHE_DIR = process.env.UNIPROT_CACHE_DIR || path.resolve(process.cwd(), '.cache', 'dspatlas');
 const UNIPROT_CACHE_INDEX_FILE = path.join(UNIPROT_CACHE_DIR, 'index.json');
 const UNIPROT_CACHE_MAX_BYTES = Number(process.env.UNIPROT_CACHE_MAX_BYTES || (64 * 1024 * 1024));
 const UNIPROT_CACHE_TTL_MS = Number(process.env.UNIPROT_CACHE_TTL_MS || (30 * 24 * 60 * 60 * 1000));
+const USE_FLAT_MIRROR = process.env.DSPA_USE_FLAT_MIRROR === '1';
 
 let cacheInitPromise = null;
 
@@ -204,6 +206,10 @@ export const getProteinDataByName = async (proteinName) => {
 
 
 export const findProteinBySearchTerm = async (searchTerm) => {
+    if (USE_FLAT_MIRROR) {
+        return searchModelFm.findProteinBySearchTerm(searchTerm);
+    }
+
     try {
         const searchTermWildcard = `%${searchTerm}%`;
 
@@ -264,6 +270,10 @@ export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
         return [];
     }
 
+    if (USE_FLAT_MIRROR) {
+        return searchModelFm.getSignificantProteinsByExperimentIDs(experimentIDs);
+    }
+
     try {
         const placeholders = experimentIDs.map(() => '?').join(',');
         const query = `
@@ -294,7 +304,7 @@ export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
             WHERE da.dpx_comparison IN (${placeholders})
               AND da.adj_pval < 0.05
               AND (da.diff < -1 OR da.diff > 1)
-            ORDER BY ABS(da.diff) DESC
+            ORDER BY ABS(da.diff) DESC, da.adj_pval ASC, da.differential_abundance_id ASC
         `;
 
         const [rows] = await db.query(query, experimentIDs);
@@ -575,6 +585,10 @@ export const getDynaProtExperimentMetaData = async (dynaprot_experiment, {includ
 };
 
 export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experiment) => {
+    if (USE_FLAT_MIRROR) {
+        return searchModelFm.getSignificantProteinsByDynaProtExperiment(dynaprot_experiment);
+    }
+
     const aggregationStart = process.hrtime.bigint();
 
     try {
@@ -595,7 +609,7 @@ export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experi
             WHERE de.dynaprot_experiment = ?
               AND da.adj_pval < 0.05
               AND (da.diff < -1 OR da.diff > 1)
-            ORDER BY ABS(da.diff) DESC
+            ORDER BY ABS(da.diff) DESC, da.adj_pval ASC, da.differential_abundance_id ASC
         `;
 
         const queryStart = process.hrtime.bigint();
