@@ -5,11 +5,43 @@ import {
   extractProteinAccession,
   findProteinBySearchTerm,
   getTaxonomyName,
+  getDifferentialAbundanceByAccession,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
   getSignificantProteinsByDynaProtExperiment,
   getSignificantProteinsByExperimentIDs
 } from '../models/searchModel.js';
+
+test('getDifferentialAbundanceByAccession selects the peptide fields needed by Woods plots', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  let capturedParams = null;
+  const rows = [{
+    differential_abundance_id: 1,
+    dpx_comparison: 'CMP-1',
+    pg_protein_accessions: 'P11111',
+    pep_grouping_key: '_PEPTIDE_',
+    pos_start: 2,
+    pos_end: 8,
+    diff: 1.5,
+    adj_pval: 0.01
+  }];
+
+  db.query = async (query, params) => {
+    capturedQuery = query;
+    capturedParams = params;
+    return [rows];
+  };
+
+  try {
+    assert.deepStrictEqual(await getDifferentialAbundanceByAccession('P11111'), rows);
+    assert.match(capturedQuery, /differential_abundance_id/);
+    assert.match(capturedQuery, /pep_grouping_key/);
+    assert.deepStrictEqual(capturedParams, ['P11111']);
+  } finally {
+    db.query = originalQuery;
+  }
+});
 
 test('extractProteinAccession returns the accession from a pipe-delimited protein name', () => {
   assert.strictEqual(

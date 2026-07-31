@@ -204,6 +204,7 @@ export const getProteinFeatures = async(proteinName) => {
       proteinName: pgProteinAccession,
       proteinSequence: fastaEntry.seq,
       differentialAbundanceData: processedData,
+      peptideLevelData: differentialAbundance,
       proteinDescription: fastaEntry.protein_description
     };
     

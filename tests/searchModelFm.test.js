@@ -3,10 +3,29 @@ import assert from 'node:assert';
 import db from '../config/database.js';
 import {
   findProteinBySearchTerm,
+  getDifferentialAbundanceByAccession,
   getProteinDataByName,
   getSignificantProteinsByDynaProtExperiment,
   getSignificantProteinsByExperimentIDs
 } from '../models/searchModelFm.js';
+
+test('FM protein peptide lookup selects the fields needed by Woods plots', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+
+  db.query = async (query) => {
+    capturedQuery = query;
+    return [[]];
+  };
+
+  try {
+    await getDifferentialAbundanceByAccession('P11111');
+    assert.match(capturedQuery, /differential_abundance_id/);
+    assert.match(capturedQuery, /pep_grouping_key/);
+  } finally {
+    db.query = originalQuery;
+  }
+});
 
 test('FM protein search reads from fm.protein_catalog', async () => {
   const originalQuery = db.query;
