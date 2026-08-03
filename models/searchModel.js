@@ -180,12 +180,12 @@ export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) =
                    da.diff,
                    da.adj_pval
             FROM differential_abundance AS da
-                     INNER JOIN dynaprot_experiment_comparison AS dec
-                                ON dec.dpx_comparison = da.dpx_comparison
+                     INNER JOIN dynaprot_experiment_comparison AS dxc
+                                ON dxc.dpx_comparison = da.dpx_comparison
                      INNER JOIN dynaprot_experiment AS de
-                                ON de.dynaprot_experiment = dec.dynaprot_experiment
+                                ON de.dynaprot_experiment = dxc.dynaprot_experiment
             WHERE da.pg_protein_accessions = ?
-              AND dec.is_hidden = 0
+              AND dxc.is_hidden = 0
               AND de.is_hidden = 0
             ORDER BY da.pos_start
         `, [pgProteinAccessions]);
@@ -524,16 +524,16 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
         const placeholders = experimentIDsList.map(() => '?').join(', ');
 
         const [rows] = await db.query(`
-            SELECT dec.dpx_comparison,
-                   dec.taxonomy_id,
-                   dec.\`condition\`,
-                   dec.dose,
-                   dec.dynaprot_experiment
-            FROM dynaprot_experiment_comparison AS dec
+            SELECT dxc.dpx_comparison,
+                   dxc.taxonomy_id,
+                   dxc.\`condition\`,
+                   dxc.dose,
+                   dxc.dynaprot_experiment
+            FROM dynaprot_experiment_comparison AS dxc
                      INNER JOIN dynaprot_experiment AS de
-                                ON de.dynaprot_experiment = dec.dynaprot_experiment
-            WHERE dec.dpx_comparison IN (${placeholders})
-              AND dec.is_hidden = 0
+                                ON de.dynaprot_experiment = dxc.dynaprot_experiment
+            WHERE dxc.dpx_comparison IN (${placeholders})
+              AND dxc.is_hidden = 0
               AND de.is_hidden = 0
         `, experimentIDsList);
 

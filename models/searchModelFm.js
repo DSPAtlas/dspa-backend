@@ -58,12 +58,12 @@ export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) =
                da.diff,
                da.adj_pval
         FROM differential_abundance AS da
-                 INNER JOIN dynaprot_experiment_comparison AS dec
-                            ON dec.dpx_comparison = da.dpx_comparison
+                 INNER JOIN dynaprot_experiment_comparison AS dxc
+                            ON dxc.dpx_comparison = da.dpx_comparison
                  INNER JOIN dynaprot_experiment AS de
-                            ON de.dynaprot_experiment = dec.dynaprot_experiment
+                            ON de.dynaprot_experiment = dxc.dynaprot_experiment
         WHERE da.pg_protein_accessions = ?
-          AND dec.is_hidden = 0
+          AND dxc.is_hidden = 0
           AND de.is_hidden = 0
         ORDER BY da.pos_start
     `, [pgProteinAccessions]);

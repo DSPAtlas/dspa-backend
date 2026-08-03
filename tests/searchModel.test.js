@@ -38,9 +38,9 @@ test('getDifferentialAbundanceByAccession selects Woods fields and excludes hidd
     assert.deepStrictEqual(await getDifferentialAbundanceByAccession('P11111'), rows);
     assert.match(capturedQuery, /differential_abundance_id/);
     assert.match(capturedQuery, /pep_grouping_key/);
-    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment_comparison AS dec/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment_comparison AS dxc/);
     assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
-    assert.match(capturedQuery, /dec\.is_hidden = 0/);
+    assert.match(capturedQuery, /dxc\.is_hidden = 0/);
     assert.match(capturedQuery, /de\.is_hidden = 0/);
     assert.deepStrictEqual(capturedParams, ['P11111']);
   } finally {
@@ -68,8 +68,9 @@ test('getExperimentsMetaData excludes hidden comparisons and parent experiments'
 
   try {
     assert.deepStrictEqual(await getExperimentsMetaData(['CMP-1']), rows);
+    assert.match(capturedQuery, /FROM dynaprot_experiment_comparison AS dxc/);
     assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
-    assert.match(capturedQuery, /dec\.is_hidden = 0/);
+    assert.match(capturedQuery, /dxc\.is_hidden = 0/);
     assert.match(capturedQuery, /de\.is_hidden = 0/);
     assert.deepStrictEqual(capturedParams, ['CMP-1']);
   } finally {

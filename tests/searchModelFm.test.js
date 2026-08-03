@@ -22,9 +22,9 @@ test('FM protein peptide lookup selects Woods fields and excludes hidden compari
     await getDifferentialAbundanceByAccession('P11111');
     assert.match(capturedQuery, /differential_abundance_id/);
     assert.match(capturedQuery, /pep_grouping_key/);
-    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment_comparison AS dec/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment_comparison AS dxc/);
     assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
-    assert.match(capturedQuery, /dec\.is_hidden = 0/);
+    assert.match(capturedQuery, /dxc\.is_hidden = 0/);
     assert.match(capturedQuery, /de\.is_hidden = 0/);
   } finally {
     db.query = originalQuery;
