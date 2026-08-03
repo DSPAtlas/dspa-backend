@@ -53,6 +53,7 @@ export const searchProteins = async (req, res) => {
                 experimentMetaData: experimentMetaData,
                 proteinSequence: result.proteinSequence || "No sequence found",
                 differentialAbundanceData: result.differentialAbundanceData,
+                peptideLevelData: result.peptideLevelData,
                 lipscoreList: lipscoreList,
                 featuresData: featuresData,
                 proteinDescription: result.proteinDescription
@@ -69,4 +70,3 @@ export const searchProteins = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
-

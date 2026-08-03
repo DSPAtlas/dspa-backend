@@ -2,11 +2,13 @@ import db from '../config/database.js';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import * as searchModelFm from './searchModelFm.js';
 
 const UNIPROT_CACHE_DIR = process.env.UNIPROT_CACHE_DIR || path.resolve(process.cwd(), '.cache', 'dspatlas');
 const UNIPROT_CACHE_INDEX_FILE = path.join(UNIPROT_CACHE_DIR, 'index.json');
 const UNIPROT_CACHE_MAX_BYTES = Number(process.env.UNIPROT_CACHE_MAX_BYTES || (64 * 1024 * 1024));
 const UNIPROT_CACHE_TTL_MS = Number(process.env.UNIPROT_CACHE_TTL_MS || (30 * 24 * 60 * 60 * 1000));
+const USE_FLAT_MIRROR = process.env.DSPA_USE_FLAT_MIRROR === '1';
 
 let cacheInitPromise = null;
 
@@ -169,10 +171,23 @@ export const getUniprotData = async (accession) => {
 export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
     try {
         const [rows] = await db.query(`
-            SELECT dpx_comparison, pg_protein_accessions, pos_start, pos_end, diff, adj_pval
-            FROM differential_abundance
-            WHERE pg_protein_accessions = ?
-            ORDER BY pos_start
+            SELECT da.differential_abundance_id,
+                   da.dpx_comparison,
+                   da.pg_protein_accessions,
+                   da.pep_grouping_key,
+                   da.pos_start,
+                   da.pos_end,
+                   da.diff,
+                   da.adj_pval
+            FROM differential_abundance AS da
+                     INNER JOIN dynaprot_experiment_comparison AS dxc
+                                ON dxc.dpx_comparison = da.dpx_comparison
+                     INNER JOIN dynaprot_experiment AS de
+                                ON de.dynaprot_experiment = dxc.dynaprot_experiment
+            WHERE da.pg_protein_accessions = ?
+              AND dxc.is_hidden = 0
+              AND de.is_hidden = 0
+            ORDER BY da.pos_start
         `, [pgProteinAccessions]);
         return rows;
     } catch (error) {
@@ -204,6 +219,10 @@ export const getProteinDataByName = async (proteinName) => {
 
 
 export const findProteinBySearchTerm = async (searchTerm) => {
+    if (USE_FLAT_MIRROR) {
+        return searchModelFm.findProteinBySearchTerm(searchTerm);
+    }
+
     try {
         const searchTermWildcard = `%${searchTerm}%`;
 
@@ -264,6 +283,10 @@ export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
         return [];
     }
 
+    if (USE_FLAT_MIRROR) {
+        return searchModelFm.getSignificantProteinsByExperimentIDs(experimentIDs);
+    }
+
     try {
         const placeholders = experimentIDs.map(() => '?').join(',');
         const query = `
@@ -294,7 +317,7 @@ export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
             WHERE da.dpx_comparison IN (${placeholders})
               AND da.adj_pval < 0.05
               AND (da.diff < -1 OR da.diff > 1)
-            ORDER BY ABS(da.diff) DESC
+            ORDER BY ABS(da.diff) DESC, da.adj_pval ASC, da.differential_abundance_id ASC
         `;
 
         const [rows] = await db.query(query, experimentIDs);
@@ -501,9 +524,17 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
         const placeholders = experimentIDsList.map(() => '?').join(', ');
 
         const [rows] = await db.query(`
-            SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
-            FROM dynaprot_experiment_comparison
-            WHERE dpx_comparison IN (${placeholders})
+            SELECT dxc.dpx_comparison,
+                   dxc.taxonomy_id,
+                   dxc.\`condition\`,
+                   dxc.dose,
+                   dxc.dynaprot_experiment
+            FROM dynaprot_experiment_comparison AS dxc
+                     INNER JOIN dynaprot_experiment AS de
+                                ON de.dynaprot_experiment = dxc.dynaprot_experiment
+            WHERE dxc.dpx_comparison IN (${placeholders})
+              AND dxc.is_hidden = 0
+              AND de.is_hidden = 0
         `, experimentIDsList);
 
         return rows;
@@ -575,6 +606,10 @@ export const getDynaProtExperimentMetaData = async (dynaprot_experiment, {includ
 };
 
 export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experiment) => {
+    if (USE_FLAT_MIRROR) {
+        return searchModelFm.getSignificantProteinsByDynaProtExperiment(dynaprot_experiment);
+    }
+
     const aggregationStart = process.hrtime.bigint();
 
     try {
@@ -595,7 +630,7 @@ export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experi
             WHERE de.dynaprot_experiment = ?
               AND da.adj_pval < 0.05
               AND (da.diff < -1 OR da.diff > 1)
-            ORDER BY ABS(da.diff) DESC
+            ORDER BY ABS(da.diff) DESC, da.adj_pval ASC, da.differential_abundance_id ASC
         `;
 
         const queryStart = process.hrtime.bigint();

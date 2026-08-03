@@ -5,11 +5,78 @@ import {
   extractProteinAccession,
   findProteinBySearchTerm,
   getTaxonomyName,
+  getDifferentialAbundanceByAccession,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
+  getExperimentsMetaData,
   getSignificantProteinsByDynaProtExperiment,
   getSignificantProteinsByExperimentIDs
 } from '../models/searchModel.js';
+
+test('getDifferentialAbundanceByAccession selects Woods fields and excludes hidden comparisons', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  let capturedParams = null;
+  const rows = [{
+    differential_abundance_id: 1,
+    dpx_comparison: 'CMP-1',
+    pg_protein_accessions: 'P11111',
+    pep_grouping_key: '_PEPTIDE_',
+    pos_start: 2,
+    pos_end: 8,
+    diff: 1.5,
+    adj_pval: 0.01
+  }];
+
+  db.query = async (query, params) => {
+    capturedQuery = query;
+    capturedParams = params;
+    return [rows];
+  };
+
+  try {
+    assert.deepStrictEqual(await getDifferentialAbundanceByAccession('P11111'), rows);
+    assert.match(capturedQuery, /differential_abundance_id/);
+    assert.match(capturedQuery, /pep_grouping_key/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment_comparison AS dxc/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
+    assert.match(capturedQuery, /dxc\.is_hidden = 0/);
+    assert.match(capturedQuery, /de\.is_hidden = 0/);
+    assert.deepStrictEqual(capturedParams, ['P11111']);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('getExperimentsMetaData excludes hidden comparisons and parent experiments', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  let capturedParams = null;
+  const rows = [{
+    dpx_comparison: 'CMP-1',
+    taxonomy_id: 9606,
+    condition: 'control',
+    dose: '10 uM',
+    dynaprot_experiment: 'DPX-1'
+  }];
+
+  db.query = async (query, params) => {
+    capturedQuery = query;
+    capturedParams = params;
+    return [rows];
+  };
+
+  try {
+    assert.deepStrictEqual(await getExperimentsMetaData(['CMP-1']), rows);
+    assert.match(capturedQuery, /FROM dynaprot_experiment_comparison AS dxc/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
+    assert.match(capturedQuery, /dxc\.is_hidden = 0/);
+    assert.match(capturedQuery, /de\.is_hidden = 0/);
+    assert.deepStrictEqual(capturedParams, ['CMP-1']);
+  } finally {
+    db.query = originalQuery;
+  }
+});
 
 test('extractProteinAccession returns the accession from a pipe-delimited protein name', () => {
   assert.strictEqual(

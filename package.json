@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build:flat-mirror": "node scripts/build_flat_mirror.js",
     "test": "node --test"
   },
   "dependencies": {
