@@ -8,11 +8,12 @@ import {
   getDifferentialAbundanceByAccession,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
+  getExperimentsMetaData,
   getSignificantProteinsByDynaProtExperiment,
   getSignificantProteinsByExperimentIDs
 } from '../models/searchModel.js';
 
-test('getDifferentialAbundanceByAccession selects the peptide fields needed by Woods plots', async () => {
+test('getDifferentialAbundanceByAccession selects Woods fields and excludes hidden comparisons', async () => {
   const originalQuery = db.query;
   let capturedQuery = null;
   let capturedParams = null;
@@ -37,7 +38,40 @@ test('getDifferentialAbundanceByAccession selects the peptide fields needed by W
     assert.deepStrictEqual(await getDifferentialAbundanceByAccession('P11111'), rows);
     assert.match(capturedQuery, /differential_abundance_id/);
     assert.match(capturedQuery, /pep_grouping_key/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment_comparison AS dec/);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
+    assert.match(capturedQuery, /dec\.is_hidden = 0/);
+    assert.match(capturedQuery, /de\.is_hidden = 0/);
     assert.deepStrictEqual(capturedParams, ['P11111']);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
+test('getExperimentsMetaData excludes hidden comparisons and parent experiments', async () => {
+  const originalQuery = db.query;
+  let capturedQuery = null;
+  let capturedParams = null;
+  const rows = [{
+    dpx_comparison: 'CMP-1',
+    taxonomy_id: 9606,
+    condition: 'control',
+    dose: '10 uM',
+    dynaprot_experiment: 'DPX-1'
+  }];
+
+  db.query = async (query, params) => {
+    capturedQuery = query;
+    capturedParams = params;
+    return [rows];
+  };
+
+  try {
+    assert.deepStrictEqual(await getExperimentsMetaData(['CMP-1']), rows);
+    assert.match(capturedQuery, /INNER JOIN dynaprot_experiment AS de/);
+    assert.match(capturedQuery, /dec\.is_hidden = 0/);
+    assert.match(capturedQuery, /de\.is_hidden = 0/);
+    assert.deepStrictEqual(capturedParams, ['CMP-1']);
   } finally {
     db.query = originalQuery;
   }

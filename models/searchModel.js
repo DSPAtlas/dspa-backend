@@ -171,11 +171,23 @@ export const getUniprotData = async (accession) => {
 export const getDifferentialAbundanceByAccession = async (pgProteinAccessions) => {
     try {
         const [rows] = await db.query(`
-            SELECT differential_abundance_id, dpx_comparison, pg_protein_accessions,
-                   pep_grouping_key, pos_start, pos_end, diff, adj_pval
-            FROM differential_abundance
-            WHERE pg_protein_accessions = ?
-            ORDER BY pos_start
+            SELECT da.differential_abundance_id,
+                   da.dpx_comparison,
+                   da.pg_protein_accessions,
+                   da.pep_grouping_key,
+                   da.pos_start,
+                   da.pos_end,
+                   da.diff,
+                   da.adj_pval
+            FROM differential_abundance AS da
+                     INNER JOIN dynaprot_experiment_comparison AS dec
+                                ON dec.dpx_comparison = da.dpx_comparison
+                     INNER JOIN dynaprot_experiment AS de
+                                ON de.dynaprot_experiment = dec.dynaprot_experiment
+            WHERE da.pg_protein_accessions = ?
+              AND dec.is_hidden = 0
+              AND de.is_hidden = 0
+            ORDER BY da.pos_start
         `, [pgProteinAccessions]);
         return rows;
     } catch (error) {
@@ -512,9 +524,17 @@ export const getExperimentsMetaData = async (experimentIDsList) => {
         const placeholders = experimentIDsList.map(() => '?').join(', ');
 
         const [rows] = await db.query(`
-            SELECT dpx_comparison, taxonomy_id, \`condition\`, dose, dynaprot_experiment
-            FROM dynaprot_experiment_comparison
-            WHERE dpx_comparison IN (${placeholders})
+            SELECT dec.dpx_comparison,
+                   dec.taxonomy_id,
+                   dec.\`condition\`,
+                   dec.dose,
+                   dec.dynaprot_experiment
+            FROM dynaprot_experiment_comparison AS dec
+                     INNER JOIN dynaprot_experiment AS de
+                                ON de.dynaprot_experiment = dec.dynaprot_experiment
+            WHERE dec.dpx_comparison IN (${placeholders})
+              AND dec.is_hidden = 0
+              AND de.is_hidden = 0
         `, experimentIDsList);
 
         return rows;
