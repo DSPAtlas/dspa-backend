@@ -509,6 +509,9 @@ export const getConditions = async () => {
 };
 
 export const getExperimentsMetaData = async (experimentIDsList) => {
+    if (!Array.isArray(experimentIDsList) || experimentIDsList.length === 0) {
+        return [];
+    }
     try {
         // Generate placeholders for the number of experiment IDs
         const placeholders = experimentIDsList.map(() => '?').join(', ');

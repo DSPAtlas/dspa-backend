@@ -78,6 +78,16 @@ test('getExperimentsMetaData excludes hidden comparisons and parent experiments'
   }
 });
 
+test('getExperimentsMetaData avoids invalid SQL when a public protein has no owned comparisons', async () => {
+  const originalQuery = db.query;
+  db.query = async () => { throw new Error('An empty comparison list must not reach SQL'); };
+  try {
+    assert.deepStrictEqual(await getExperimentsMetaData([]), []);
+  } finally {
+    db.query = originalQuery;
+  }
+});
+
 test('extractProteinAccession returns the accession from a pipe-delimited protein name', () => {
   assert.strictEqual(
     extractProteinAccession('sp|P12345|ALBU_HUMAN Serum albumin'),
