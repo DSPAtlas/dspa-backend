@@ -90,7 +90,7 @@ session. Cleanup ignores the request's abort signal and remains bounded by the S
 timeout; a cleanup failure destroys the session instead of returning it to the
 pool. Cancelled pool acquisitions dispose any connection delivered afterwards.
 Any binding that cannot be cleared is attached to the destroyed session's thread
-and has a finite lease (at least 60 seconds, or the SQL timeout plus 30 seconds).
+and has an eight-hour lease independent of the SQL timeout.
 There is no unbound query fallback.
 
 ## Public UniProt cache

@@ -122,6 +122,8 @@ test('A/B/A pooled reuse binds every query and clears before each release', asyn
   assert.deepEqual(results.map(result => result[0][0].owner), [11, 22, 11]);
   assert.equal(new Set(results.map(result => result[0][0].connection)).size, 1);
   assert.equal(events.filter(event => event.sql?.includes('bind_context')).length, 3);
+  assert.deepEqual(events.filter(event => event.sql?.includes('bind_context'))
+    .map(event => event.parameters[3]), [28_800, 28_800, 28_800]);
   assert.equal(events.filter(event => event.sql?.includes('clear_context')).length, 3);
   assert.equal(bindings.size, 0);
 });
@@ -181,6 +183,7 @@ test('query timeout destroys the active connection and clears its owner', async 
   await assert.rejects(runWithUserContext(user(11), () => db.query('SELECT private_data')), { code: 'QUERY_TIMEOUT' });
   assert.equal(bindings.size, 0);
   assert.ok(events.some(event => event.role === 'data' && event.destroyed));
+  assert.equal(events.find(event => event.sql?.includes('bind_context')).parameters[3], 28_800);
 });
 
 test('request abort destroys an active query and allows another owner to continue', async () => {

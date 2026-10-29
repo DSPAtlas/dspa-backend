@@ -1,6 +1,10 @@
 import mysql from 'mysql2';
 import { currentUserContext } from './userContext.js';
 
+// Binding expiry is independent of request/query timeouts; normal cleanup still
+// clears the binding before a connection is released to the pool.
+const CONTEXT_TTL_SECONDS = 28_800;
+
 function integerSetting(value, fallback, maximum, name) {
   const number = Number(value ?? fallback);
   if (!Number.isInteger(number) || number < 1 || number > maximum) {
@@ -136,7 +140,7 @@ export function createDatabase({ env = process.env, createPool = options => mysq
       }
       target = [metadata.connection_id, metadata.thread_id];
       await query(control, 'CALL dspa_security.bind_context(?,?,?,?)',
-        [...target, context.userId, Math.max(60, Math.ceil(timeout / 1000) + 30)], signal);
+        [...target, context.userId, CONTEXT_TTL_SECONDS], signal);
       result = await query(data, sql, values, signal);
     } catch (error) {
       failure = error;
