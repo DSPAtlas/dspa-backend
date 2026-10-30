@@ -238,6 +238,20 @@ export const findProteinBySearchTerm = async (searchTerm) => {
 };
 
 export const getTaxonomyName = async (taxId) => {
+    if (db.mode === 'per-user') {
+        const [rows] = await db.query(
+            `SELECT COALESCE(
+                (SELECT NULLIF(TRIM(de.organism_name), '')
+                 FROM dynaprot_experiment de
+                 WHERE de.taxonomy_id = ? AND NULLIF(TRIM(de.organism_name), '') IS NOT NULL
+                 ORDER BY de.dynaprot_experiment
+                 LIMIT 1),
+                (SELECT organism_name FROM organism WHERE taxonomy_id = ? LIMIT 1)
+             ) AS organism_name`,
+            [taxId, taxId]
+        );
+        return rows[0]?.organism_name || "Taxonomy ID not found";
+    }
     const [rows] = await db.query(
         `SELECT organism_name
          FROM organism
@@ -446,13 +460,16 @@ export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
 
 // This query is for experiments overview page. There are much more columns in the table.
 export const getAllExperiments = async () => {
+    const organismName = db.mode === 'per-user'
+        ? "COALESCE(NULLIF(TRIM(de.organism_name), ''), o.organism_name)"
+        : 'o.organism_name';
     const query = `
         SELECT de.dynaprot_experiment,
                de.perturbation,
                de.condition,
                de.protease,
                de.doi,
-               o.organism_name AS organism
+               ${organismName} AS organism
         FROM dynaprot_experiment de
                  LEFT JOIN organism o
                            ON o.taxonomy_id = de.taxonomy_id
@@ -492,6 +509,21 @@ export const getExperimentsByCondition = async (condition) => {
 
 export const getConditions = async () => {
     try {
+        if (db.mode === 'per-user') {
+            const [rows] = await db.query(`
+                SELECT comparison.\`condition\`,
+                       comparison.taxonomy_id,
+                       COALESCE(MIN(NULLIF(TRIM(de.organism_name), '')), MAX(o.organism_name)) AS organism_name
+                FROM dynaprot_experiment_comparison comparison
+                         INNER JOIN dynaprot_experiment de
+                                    ON de.dynaprot_experiment = comparison.dynaprot_experiment
+                         LEFT JOIN organism o ON o.taxonomy_id = comparison.taxonomy_id
+                WHERE comparison.\`condition\` IS NOT NULL
+                GROUP BY comparison.\`condition\`, comparison.taxonomy_id
+                ORDER BY comparison.\`condition\`, comparison.taxonomy_id
+            `);
+            return rows;
+        }
         const [rows] = await db.query(`
             SELECT DISTINCT comparison.\`condition\`,
                             comparison.taxonomy_id,

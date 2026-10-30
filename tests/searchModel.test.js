@@ -5,6 +5,8 @@ import {
   extractProteinAccession,
   findProteinBySearchTerm,
   getTaxonomyName,
+  getAllExperiments,
+  getConditions,
   getDifferentialAbundanceByAccession,
   getDifferentialAbundanceByExperimentIDs,
   getDynaProtExperimentMetaData,
@@ -122,6 +124,91 @@ test('getTaxonomyName resolves taxonomy IDs from the database and reports unknow
     assert.deepStrictEqual(capturedParams, [[9606], [1234]]);
   } finally {
     db.query = originalQuery;
+  }
+});
+
+test('private experiment overview prefers uploaded organism names without requiring reference rows', async () => {
+  const originalQuery = db.query;
+  const originalMode = db.mode;
+  db.mode = 'per-user';
+  const rows = [{dynaprot_experiment: 'DPX000007', organism: 'Escherichia coli'}];
+  db.query = async query => {
+    assert.match(query, /COALESCE\(NULLIF\(TRIM\(de\.organism_name\), ''\), o\.organism_name\) AS organism/);
+    assert.match(query, /FROM dynaprot_experiment de/);
+    assert.match(query, /LEFT JOIN organism o/);
+    assert.doesNotMatch(query, /dynaprotdbv2\./);
+    return [rows];
+  };
+  try {
+    assert.deepStrictEqual(await getAllExperiments(), rows);
+  } finally {
+    db.query = originalQuery;
+    db.mode = originalMode;
+  }
+});
+
+test('private condition labels use owned experiment names and retain one option per condition and taxonomy', async () => {
+  const originalQuery = db.query;
+  const originalMode = db.mode;
+  db.mode = 'per-user';
+  const rows = [{condition: 'Malate', taxonomy_id: 562, organism_name: 'Escherichia coli'}];
+  db.query = async query => {
+    assert.match(query, /INNER JOIN dynaprot_experiment de\s+ON de\.dynaprot_experiment = comparison\.dynaprot_experiment/);
+    assert.match(query, /COALESCE\(MIN\(NULLIF\(TRIM\(de\.organism_name\), ''\)\), MAX\(o\.organism_name\)\)/);
+    assert.match(query, /GROUP BY comparison\.`condition`, comparison\.taxonomy_id/);
+    assert.doesNotMatch(query, /dynaprotdbv2\./);
+    return [rows];
+  };
+  try {
+    assert.deepStrictEqual(await getConditions(), rows);
+  } finally {
+    db.query = originalQuery;
+    db.mode = originalMode;
+  }
+});
+
+test('private taxonomy lookup uses owned names with reference fallback and parameterized taxonomy IDs', async () => {
+  const originalQuery = db.query;
+  const originalMode = db.mode;
+  db.mode = 'per-user';
+  db.query = async (query, params) => {
+    assert.match(query, /SELECT COALESCE\(/);
+    assert.match(query, /FROM dynaprot_experiment de/);
+    assert.match(query, /de\.taxonomy_id = \? AND NULLIF\(TRIM\(de\.organism_name\), ''\) IS NOT NULL/);
+    assert.match(query, /SELECT organism_name FROM organism WHERE taxonomy_id = \? LIMIT 1/);
+    assert.deepStrictEqual(params, [params[0], params[0]]);
+    return [[{organism_name: params[0] === 562 ? 'Escherichia coli' : null}]];
+  };
+  try {
+    assert.strictEqual(await getTaxonomyName(562), 'Escherichia coli');
+    assert.strictEqual(await getTaxonomyName(1234), 'Taxonomy ID not found');
+  } finally {
+    db.query = originalQuery;
+    db.mode = originalMode;
+  }
+});
+
+test('shared organism queries remain compatible with schemas without uploaded organism names', async () => {
+  const originalQuery = db.query;
+  const originalMode = db.mode;
+  db.mode = 'shared';
+  const queries = [];
+  db.query = async query => {
+    queries.push(query);
+    assert.doesNotMatch(query, /de\.organism_name/);
+    return [[]];
+  };
+  try {
+    await getAllExperiments();
+    await getConditions();
+    await getTaxonomyName(9606);
+    assert.strictEqual(queries.length, 3);
+    assert.match(queries[0], /o\.organism_name AS organism/);
+    assert.doesNotMatch(queries[1], /JOIN dynaprot_experiment de/);
+    assert.doesNotMatch(queries[2], /dynaprot_experiment/);
+  } finally {
+    db.query = originalQuery;
+    db.mode = originalMode;
   }
 });
 
