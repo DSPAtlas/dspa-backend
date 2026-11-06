@@ -2,6 +2,7 @@ import db from '../config/database.js';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { fetchProteinAnnotations, validAnnotationPayload } from './proteinAnnotations.js';
 
 const UNIPROT_CACHE_DIR = process.env.UNIPROT_CACHE_DIR || path.resolve(process.cwd(), '.cache', 'dspatlas');
 const UNIPROT_CACHE_INDEX_FILE = path.join(UNIPROT_CACHE_DIR, 'index.json');
@@ -27,7 +28,10 @@ const ensureCacheInitialized = async () => {
         } catch {
             await fs.writeFile(UNIPROT_CACHE_INDEX_FILE, JSON.stringify(createEmptyIndex()));
         }
-    })();
+    })().catch(error => {
+        cacheInitPromise = null;
+        throw error;
+    });
 
     return cacheInitPromise;
 };
@@ -147,15 +151,16 @@ const setCachedUniprotResponse = async (cacheKey, data) => {
 export const getUniprotData = async (accession) => {
     const normalizedAccession = normalizeAccession(accession);
     const cacheKey = `uniprot:${normalizedAccession}`;
-    const cached = await getCachedUniprotResponse(cacheKey);
-
-    if (cached) {
-        return cached;
+    try {
+        const cached = await getCachedUniprotResponse(cacheKey);
+        if (validAnnotationPayload(cached)) {
+            return cached;
+        }
+    } catch (error) {
+        console.warn('[searchModel] Failed to read UniProt cache entry:', error.message);
     }
 
-    const url = `https://www.ebi.ac.uk/proteins/api/features/${normalizedAccession}`;
-    const response = await fetch(url);
-    const responseData = await response.json();
+    const responseData = await fetchProteinAnnotations(normalizedAccession);
 
     try {
         await setCachedUniprotResponse(cacheKey, responseData);

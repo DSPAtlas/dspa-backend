@@ -6,6 +6,7 @@ import {
 import { 
   getProteinFeatures
 } from '../models/proteinModel.js';
+import { AnnotationUnavailableError } from '../models/proteinAnnotations.js';
 
 
 const querySchema = Joi.object({
@@ -27,7 +28,20 @@ export const searchProteins = async (req, res) => {
     const { proteinName } = value;
   
     const result = await getProteinFeatures(proteinName);
-    const featuresData = await getUniprotData(proteinName);
+    let featuresData;
+    try {
+      featuresData = await getUniprotData(result.proteinName);
+    } catch (error) {
+      if (!(error instanceof AnnotationUnavailableError)) throw error;
+      console.warn('[proteinController]', error.message);
+      featuresData = {
+        accession: result.proteinName,
+        sequence: result.proteinSequence,
+        features: [],
+        available: false,
+        message: error.message,
+      };
+    }
 
     let lipscoreList = [];
     const experimentIDsList = Object.keys(result.differentialAbundanceData);
