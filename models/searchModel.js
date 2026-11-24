@@ -226,7 +226,13 @@ export const findProteinBySearchTerm = async (searchTerm) => {
              WHERE (o.protein_name LIKE ? OR o.protein_description LIKE ? OR o.gene_name LIKE ?)
                AND EXISTS (SELECT 1
                            FROM differential_abundance d
-                           WHERE d.pg_protein_accessions = o.protein_name)`,
+                                    INNER JOIN dynaprot_experiment_comparison dxc
+                                               ON dxc.dpx_comparison = d.dpx_comparison
+                                    INNER JOIN dynaprot_experiment de
+                                               ON de.dynaprot_experiment = dxc.dynaprot_experiment
+                           WHERE d.pg_protein_accessions = o.protein_name
+                             AND dxc.is_hidden = 0
+                             AND de.is_hidden = 0)`,
             [searchTermWildcard, searchTermWildcard, searchTermWildcard]
         );
 
@@ -257,7 +263,13 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
             const query = `
                 SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
                 FROM differential_abundance da
+                         INNER JOIN dynaprot_experiment_comparison dxc
+                                    ON dxc.dpx_comparison = da.dpx_comparison
+                         INNER JOIN dynaprot_experiment de
+                                    ON de.dynaprot_experiment = dxc.dynaprot_experiment
                 WHERE da.dpx_comparison IN (${placeholders})
+                  AND dxc.is_hidden = 0
+                  AND de.is_hidden = 0
                   AND da.adj_pval > 0
             `;
             const [rows] = await db.query(query, experimentIDs);
@@ -293,8 +305,10 @@ export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
                      LEFT JOIN protein_scores ps
                                ON ps.dpx_comparison = da.dpx_comparison
                                    AND ps.pg_protein_accessions = da.pg_protein_accessions
-                     LEFT JOIN dynaprot_experiment_comparison \`dec\`
+                     INNER JOIN dynaprot_experiment_comparison \`dec\`
                                ON \`dec\`.dpx_comparison = da.dpx_comparison
+                     INNER JOIN dynaprot_experiment de
+                                ON de.dynaprot_experiment = \`dec\`.dynaprot_experiment
                      LEFT JOIN (SELECT protein_name, taxonomy_id, MAX(protein_description) AS protein_description
                                 FROM organism_proteome_entries
                                 GROUP BY protein_name, taxonomy_id) ope_exact
@@ -305,6 +319,8 @@ export const getSignificantProteinsByExperimentIDs = async (experimentIDs) => {
                                 GROUP BY protein_name) ope_any
                                ON ope_any.protein_name = da.pg_protein_accessions
             WHERE da.dpx_comparison IN (${placeholders})
+              AND \`dec\`.is_hidden = 0
+              AND de.is_hidden = 0
               AND da.adj_pval < 0.05
               AND (da.diff < -1 OR da.diff > 1)
             ORDER BY ABS(da.diff) DESC
@@ -368,6 +384,8 @@ export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_expe
                  differential_abundance dac
                  ON \`dec\`.dpx_comparison = dac.dpx_comparison
             WHERE de.dynaprot_experiment = ?
+              AND de.is_hidden = 0
+              AND \`dec\`.is_hidden = 0
               AND dac.adj_pval > 0;
         `;
         const [rows] = await db.query(query, [dynaprot_experiment]);
@@ -396,6 +414,8 @@ export const getGoEnrichmentResultsByDynaProtExperiment = async (dynaprot_experi
                  go_term gt
                  ON ga.go_id = gt.go_id
             WHERE de.dynaprot_experiment = ?
+              AND de.is_hidden = 0
+              AND \`dec\`.is_hidden = 0
               AND gt.taxonomy_id = \`dec\`.taxonomy_id
               AND ga.adj_pval < 1
         `;
@@ -430,7 +450,11 @@ export const getGoEnrichmentResultsByExperimentIDs = async (experimentIDs) => {
                  go_term gt ON ga.go_id = gt.go_id
                      INNER JOIN
                  dynaprot_experiment_comparison le ON ga.dpx_comparison = le.dpx_comparison
+                     INNER JOIN dynaprot_experiment de
+                                ON de.dynaprot_experiment = le.dynaprot_experiment
             WHERE ga.dpx_comparison IN (${placeholders})
+              AND le.is_hidden = 0
+              AND de.is_hidden = 0
             GROUP BY gt.go_term, ga.adj_pval, ga.dpx_comparison;
         `;
 
@@ -456,6 +480,7 @@ export const getAllExperiments = async () => {
         FROM dynaprot_experiment de
                  LEFT JOIN organism o
                            ON o.taxonomy_id = de.taxonomy_id
+        WHERE de.is_hidden = 0
     `;
     try {
         const [rows] = await db.query(query);
@@ -470,14 +495,18 @@ export const getAllExperiments = async () => {
 export const getExperimentsByCondition = async (condition) => {
     try {
         let query = `
-            SELECT dpx_comparison
-            FROM dynaprot_experiment_comparison
-            WHERE \`condition\` = ?
+            SELECT dxc.dpx_comparison
+            FROM dynaprot_experiment_comparison dxc
+                     INNER JOIN dynaprot_experiment de
+                                ON de.dynaprot_experiment = dxc.dynaprot_experiment
+            WHERE dxc.\`condition\` = ?
+              AND dxc.is_hidden = 0
+              AND de.is_hidden = 0
         `;
         const params = [condition.condition];
 
         if (condition.taxonomyId !== null && condition.taxonomyId !== undefined) {
-            query += ` AND taxonomy_id = ?`;
+            query += ` AND dxc.taxonomy_id = ?`;
             params.push(condition.taxonomyId);
         }
 
@@ -497,8 +526,12 @@ export const getConditions = async () => {
                             comparison.taxonomy_id,
                             o.organism_name
             FROM dynaprot_experiment_comparison comparison
+                     INNER JOIN dynaprot_experiment de
+                                ON de.dynaprot_experiment = comparison.dynaprot_experiment
                      LEFT JOIN organism o ON o.taxonomy_id = comparison.taxonomy_id
             WHERE comparison.\`condition\` IS NOT NULL
+              AND comparison.is_hidden = 0
+              AND de.is_hidden = 0
             ORDER BY comparison.\`condition\`, comparison.taxonomy_id
         `);
         return rows;
@@ -509,6 +542,10 @@ export const getConditions = async () => {
 };
 
 export const getExperimentsMetaData = async (experimentIDsList) => {
+    if (!Array.isArray(experimentIDsList) || experimentIDsList.length === 0) {
+        return [];
+    }
+
     try {
         // Generate placeholders for the number of experiment IDs
         const placeholders = experimentIDsList.map(() => '?').join(', ');
@@ -549,15 +586,19 @@ export const getDistinctDoseByExperimentComparisonIDs = async (experimentCompari
         // deterministic tie-breaker to collapse duplicates.
         const [rows] = await db.query(
             `
-                SELECT dpx_comparison,
-                       MIN(NULLIF(TRIM(dose), '')) AS dose,
+                SELECT dxc.dpx_comparison,
+                       MIN(NULLIF(TRIM(dxc.dose), '')) AS dose,
                        COALESCE(
-                               MIN(NULLIF(TRIM(dose), '')),
-                               dpx_comparison
+                               MIN(NULLIF(TRIM(dxc.dose), '')),
+                               dxc.dpx_comparison
                        )                           AS comparison_label
-                FROM dynaprot_experiment_comparison
-                WHERE dpx_comparison IN (${placeholders})
-                GROUP BY dpx_comparison
+                FROM dynaprot_experiment_comparison dxc
+                         INNER JOIN dynaprot_experiment de
+                                    ON de.dynaprot_experiment = dxc.dynaprot_experiment
+                WHERE dxc.dpx_comparison IN (${placeholders})
+                  AND dxc.is_hidden = 0
+                  AND de.is_hidden = 0
+                GROUP BY dxc.dpx_comparison
             `,
             experimentComparisonIDsList
         );
@@ -587,6 +628,7 @@ export const getDynaProtExperimentMetaData = async (dynaprot_experiment, {includ
                    pk_digestion_time_in_sec${qcPdfField}
             FROM dynaprot_experiment
             WHERE dynaprot_experiment = ?
+              AND is_hidden = 0
         `, [dynaprot_experiment]);
         return rows;
     } catch (error) {
@@ -614,6 +656,8 @@ export const getSignificantProteinsByDynaProtExperiment = async (dynaprot_experi
                                ON da.pg_protein_accessions = ope.protein_name
                                    AND \`dec\`.taxonomy_id = ope.taxonomy_id
             WHERE de.dynaprot_experiment = ?
+              AND de.is_hidden = 0
+              AND \`dec\`.is_hidden = 0
               AND da.adj_pval < 0.05
               AND (da.diff < -1 OR da.diff > 1)
             ORDER BY ABS(da.diff) DESC
