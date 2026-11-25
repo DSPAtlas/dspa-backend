@@ -261,7 +261,7 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
             const placeholders = experimentIDs.map(() => '?').join(',');
 
             const query = `
-                SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.adj_pval, da.dpx_comparison
+                SELECT da.pg_protein_accessions, da.pep_grouping_key, da.diff, da.pval, da.adj_pval, da.dpx_comparison
                 FROM differential_abundance da
                          INNER JOIN dynaprot_experiment_comparison dxc
                                     ON dxc.dpx_comparison = da.dpx_comparison
@@ -270,7 +270,7 @@ export const getDifferentialAbundanceByExperimentIDs = async (experimentIDs) => 
                 WHERE da.dpx_comparison IN (${placeholders})
                   AND dxc.is_hidden = 0
                   AND de.is_hidden = 0
-                  AND da.adj_pval > 0
+                  AND da.pval > 0
             `;
             const [rows] = await db.query(query, experimentIDs);
             return rows;
@@ -374,6 +374,7 @@ export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_expe
             SELECT dac.pg_protein_accessions,
                    dac.pep_grouping_key,
                    dac.diff,
+                   dac.pval,
                    dac.adj_pval,
                    dac.dpx_comparison
             FROM dynaprot_experiment de
@@ -386,7 +387,7 @@ export const getDifferentialAbundanceByDynaProtExperiment = async (dynaprot_expe
             WHERE de.dynaprot_experiment = ?
               AND de.is_hidden = 0
               AND \`dec\`.is_hidden = 0
-              AND dac.adj_pval > 0;
+              AND dac.pval > 0;
         `;
         const [rows] = await db.query(query, [dynaprot_experiment]);
         return rows;
